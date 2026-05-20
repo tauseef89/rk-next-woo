@@ -193,7 +193,7 @@ async function woocommerceFetchPaginatedGraceful<T>(
 }
 
 // POST/PUT/DELETE fetch for mutations (no caching)
-async function woocommerceMutate<T>(
+export async function woocommerceMutate<T>(
   endpoint: string,
   method: "POST" | "PUT" | "DELETE",
   body?: object
@@ -417,6 +417,7 @@ export async function getProductCategoryById(id: number): Promise<ProductCategor
   );
 }
 
+
 export async function getProductCategoryBySlug(
   slug: string
 ): Promise<ProductCategory | undefined> {
@@ -439,6 +440,30 @@ export async function getAllCategorySlugs(): Promise<{ slug: string }[]> {
     console.warn("WooCommerce unavailable, skipping static generation for categories");
     return [];
   }
+}
+// ============================================================================
+// Categories
+// ============================================================================
+
+/**
+ * Fetches specific categories by their IDs.
+ * @param ids - Array of category IDs (e.g., [18, 31, 45])
+ */
+export async function getCategoriesByIds(ids: number[]): Promise<ProductCategory[]> {
+  if (!ids.length) return [];
+
+  const query = {
+    include: ids.join(','), // Converts [1, 2] to "1,2"
+    orderby: "include",     // Keeps categories in the order of the IDs provided
+    per_page: 100,
+  };
+
+  return woocommerceFetchGraceful<ProductCategory[]>(
+    "products/categories",
+    [], // Fallback empty array
+    query,
+    ["woocommerce", "categories", `categories-include-${ids.join('-')}`]
+  );
 }
 
 // ============================================================================
@@ -487,10 +512,17 @@ export async function getProductReviews(
   return woocommerceFetchGraceful<ProductReview[]>(
     "products/reviews",
     [],
-    { product: productId, status: "approved" },
+    { 
+      product: productId, 
+      status: "approved",
+      per_page: 100 // Fetches up to 100 reviews instead of the default 10
+    },
     ["woocommerce", "reviews", `product-${productId}`]
   );
 }
+
+
+// lib/woocommerce.ts
 
 export async function createProductReview(
   productId: number,
@@ -499,13 +531,54 @@ export async function createProductReview(
     reviewer: string;
     reviewer_email: string;
     rating: number;
-  }
-): Promise<ProductReview> {
-  return woocommerceMutate<ProductReview>("products/reviews", "POST", {
-    product_id: productId,
-    ...review,
+  },
+  token: string // Accepts the JWT token from localStorage
+): Promise<any> {
+  // Call your internal Next.js API route as a proxy
+  const response = await fetch("/api/reviews", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      productId,
+      review,
+      token,
+    }),
   });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Failed to post review");
+  }
+
+  return response.json();
 }
+
+
+// ============================================================================
+// Get Brands
+// ============================================================================
+// lib/woocommerce.ts
+
+// lib/woocommerce.ts
+
+// lib/woocommerce.ts
+
+export async function getBrands(): Promise<any[]> {
+  // Native WooCommerce Brands use this endpoint since v9.4
+  return woocommerceFetchGraceful<any[]>(
+    "products/brands", 
+    [], 
+    { 
+      per_page: 100, 
+      hide_empty: false // Keep false to see your brands even if they have no products yet
+    },
+    ["woocommerce", "brands"]
+  );
+}
+
+
 
 // ============================================================================
 // Orders
@@ -702,13 +775,25 @@ export async function getEnabledPaymentGateways(): Promise<PaymentGateway[]> {
 
 export function formatPrice(
   price: string | number,
-  currency: string = "USD"
+  currency: string = "INR"
 ): string {
   const numericPrice = typeof price === "string" ? parseFloat(price) : price;
 
-  return new Intl.NumberFormat("en-US", {
+  // 1. Handle empty or undefined values
+  if (price === undefined || price === "" || price === null) {
+    return ""; 
+  }
+
+  // 3. Safety check: If parsing failed, return an empty string instead of NaN
+  if (isNaN(numericPrice)) {
+    return "";
+  }
+
+  return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency,
+    currencyDisplay: "symbol",
+    minimumFractionDigits: 2,
   }).format(numericPrice);
 }
 
@@ -720,6 +805,7 @@ export function calculateDiscountPercentage(
   const sale = parseFloat(salePrice);
 
   if (!regular || !sale || regular <= sale) return 0;
+  if (isNaN(regular) || isNaN(sale) || regular <= 0) return 0;
 
   return Math.round(((regular - sale) / regular) * 100);
 }
@@ -752,3 +838,235 @@ export function getProductStockMessage(product: Product): string {
 
   return "In stock";
 }
+
+// ============================================================================
+// Shipping & Pincode Serviceability
+// ============================================================================
+export async function checkPincodeServiceability(pincode: string): Promise<boolean> {
+  const cleanInput = pincode.replace(/\s/g, "");
+  const inputNum = parseInt(cleanInput, 10);
+
+  if (isNaN(inputNum) || cleanInput.length !== 6) return false;
+
+  // STEP 1: Hardcoded Priority Check (Delhi, Punjab, Haryana, UP)
+  // This ensures it works even if the API/Cache is acting up
+  const priorityRanges = [
+    { start: 110001, end: 110099 }, // Delhi
+    { start: 121001, end: 136156 }, // Haryana
+    { start: 140001, end: 160104 }, // Punjab
+    { start: 201001, end: 285223 }, // Uttar Pradesh
+  ];
+
+  const isInPriorityZone = priorityRanges.some(
+    (range) => inputNum >= range.start && inputNum <= range.end
+  );
+
+  if (isInPriorityZone) return true;
+
+  // STEP 2: API Fallback (for any other zones you might add later)
+  try {
+    const locations = await woocommerceFetchGraceful<any[]>(
+      "shipping/zones/1/locations",
+      [],
+      undefined,
+      ["woocommerce", "shipping-zone-1-locations-v99"] // Force new cache
+    );
+
+    if (!locations || locations.length === 0) return false;
+
+    return locations.some((loc: any) => {
+      if (loc.type !== "postcode") return false;
+      const cleanLocCode = loc.code.replace(/\s/g, "");
+
+      if (cleanLocCode.includes("...")) {
+        const [start, end] = cleanLocCode.split("...").map((s: string) => parseInt(s, 10));
+        return inputNum >= start && inputNum <= end;
+      }
+      return cleanLocCode === cleanInput;
+    });
+  } catch (error) {
+    console.error("API Check Failed:", error);
+    return false;
+  }
+}
+
+export async function getFilteredProducts(
+  page: number = 1,
+  perPage: number = 12,
+  params?: {
+    category?: number;
+    tag?: number;
+    search?: string;
+    orderby?: "date" | "id" | "title" | "slug" | "price" | "popularity" | "rating";
+    order?: "asc" | "desc";
+    featured?: boolean;
+    on_sale?: boolean;
+    min_price?: number;
+    max_price?: number;
+    stock_status?: "instock" | "outofstock" | "onbackorder";
+    // Added for attribute filtering (e.g., Brand, RAM)
+    attribute?: string; 
+    attribute_term?: string;
+  }
+): Promise<WooCommerceResponse<Product[]>> {
+  const query: Record<string, any> = {
+    per_page: perPage,
+    page,
+    status: "publish",
+    ...params,
+  };
+
+  const cacheTags = ["woocommerce", "products", `products-page-${page}`];
+
+  // Dynamic Cache Tags
+  if (params?.category) cacheTags.push(`products-category-${params.category}`);
+  if (params?.tag) cacheTags.push(`products-tag-${params.tag}`);
+  if (params?.search) cacheTags.push("products-search");
+  if (params?.attribute) cacheTags.push(`products-attr-${params.attribute}`);
+
+  return woocommerceFetchPaginatedGraceful<Product>("products", query, cacheTags);
+}
+
+// ============================================================================
+// Attributes & Filters
+// ============================================================================
+
+/**
+ * Fetches all global product attributes (e.g., Brand, Color, RAM)
+ */
+export async function getAllAttributes(): Promise<any[]> {
+  return woocommerceFetchGraceful<any[]>(
+    "products/attributes",
+    [], // Fallback to empty array
+    { per_page: 100 },
+    ["woocommerce", "attributes"]
+  );
+}
+
+/**
+ * Fetches terms (options) for a specific attribute (e.g., Apple, Dell for "Brand")
+ */
+export async function getAttributeTerms(attributeId: number): Promise<any[]> {
+  return woocommerceFetchGraceful<any[]>(
+    `products/attributes/${attributeId}/terms`,
+    [], // Fallback to empty array
+    { per_page: 100 },
+    ["woocommerce", `attribute-${attributeId}-terms`]
+  );
+}
+
+// ============================================================================
+// Customers & Loyalty (WPC Rewards Points)
+// ============================================================================
+
+/**
+ * Get a specific customer by ID, including the points_balance 
+ * added via the WordPress functions.php snippet.
+ */
+export async function getCustomerById(id: number): Promise<Customer> {
+  return woocommerceFetch<Customer>(`customers/${id}`, undefined, [
+    "woocommerce",
+    "customers",
+    `customer-${id}`,
+  ]);
+}
+
+/**
+ * Update a customer's point balance manually.
+ * Useful if you need to deduct points after a headless checkout.
+ */
+export async function updateCustomerPoints(
+  customerId: number, 
+  newBalance: number
+): Promise<Customer> {
+  // WPC stores points in meta_data
+  const body = {
+    meta_data: [
+      {
+        key: "_wpc_points",
+        value: String(newBalance),
+      },
+    ],
+  };
+
+  return woocommerceMutate<Customer>(`customers/${customerId}`, "PUT", body);
+}
+
+/**
+ * Get points for the logged-in user specifically.
+ * Used in your Loyalty Points page.
+ */
+export async function getCustomerPoints(customerId: number): Promise<number> {
+  try {
+    const customer = await getCustomerById(customerId);
+    // This assumes you've added the 'points_balance' field to the REST API in WP
+    return (customer as any).points_balance || 0;
+  } catch (error) {
+    console.error("Error fetching customer points:", error);
+    return 0;
+  }
+}
+
+// ============================================================================
+// Comparison & Batch Fetching
+// ============================================================================
+
+/**
+ * Fetches multiple products by their IDs for the comparison tool.
+ */
+export async function getProductsByIds(ids: number[]): Promise<Product[]> {
+  if (!ids || ids.length === 0) return [];
+  
+  return woocommerceFetchGraceful<Product[]>(
+    "products",
+    [],
+    { 
+      include: ids.join(','), 
+      per_page: 10, // Limit to a reasonable number for comparison
+      status: "publish" 
+    },
+    ["woocommerce", "products", "products-compare"]
+  );
+}
+
+// ============================================================================
+// Wishlist (TI WooCommerce Wishlist)
+// ============================================================================
+
+export async function getUserWishlist(userId: number) {
+  // Returns the user's wishlist meta (including the vital share_key)
+  return woocommerceFetch<any>(`wishlist/get_by_user/${userId}`, undefined, [
+    "wishlist",
+    `user-${userId}-wishlist`,
+  ]);
+}
+
+export async function getWishlistProducts(shareKey: string) {
+  // Returns the actual products inside a specific wishlist
+  return woocommerceFetch<any[]>(`wishlist/${shareKey}/get_products`, undefined, [
+    "wishlist",
+    `wishlist-${shareKey}`,
+  ]);
+}
+
+export async function addToWishlist(shareKey: string, productId: number) {
+  // Uses your mutate function (no-cache) to add an item
+  return woocommerceMutate<any>(`wishlist/${shareKey}/add_product`, "POST", {
+    product_id: productId,
+  });
+}
+
+export async function removeFromWishlist(shareKey: string, itemId: number) {
+  // TI Wishlist requires the specific item_id (from the wishlist), not product_id
+  return woocommerceMutate<any>(
+    `wishlist/${shareKey}/remove_product/${itemId}`,
+    "DELETE"
+  );
+}
+
+
+
+
+
+
+

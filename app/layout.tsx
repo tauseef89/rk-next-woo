@@ -2,7 +2,6 @@ import "./globals.css";
 
 import { Inter as FontSans } from "next/font/google";
 import { ThemeProvider } from "@/components/theme/theme-provider";
-import { Analytics } from "@vercel/analytics/react";
 import { CartProvider } from "@/components/shop";
 import { Nav } from "@/components/layout/nav";
 import { Footer } from "@/components/layout/footer";
@@ -11,6 +10,8 @@ import { siteConfig } from "@/site.config";
 import { cn } from "@/lib/utils";
 
 import type { Metadata } from "next";
+import CompareBar from "@/components/shop/CompareBar";
+import SignupPopup from "@/components/SignupPopup";
 
 const font = FontSans({
   subsets: ["latin"],
@@ -40,17 +41,17 @@ export default function RootLayout({
       <body className={cn("min-h-screen font-sans antialiased", font.variable)}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="light"
           disableTransitionOnChange
         >
           <CartProvider>
             <Nav />
             {children}
             <Footer />
+            <CompareBar /> {/* [NEW COMPONENT] This will float globally */}
           </CartProvider>
+          <SignupPopup />
         </ThemeProvider>
-        <Analytics />
       </body>
     </html>
   );

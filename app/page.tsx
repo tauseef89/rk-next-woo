@@ -1,181 +1,132 @@
-// Craft Imports
-import { Section, Container, Prose } from "@/components/craft";
-
-// Next.js Imports
+// app/page.tsx
+import { Section, Container } from "@/components/craft";
 import Link from "next/link";
+import HomeHero from "@/components/home-comp/home-hero";
+import CategoryProductList from "@/components/home-comp/category-product-list";
+import CategoryAd from "@/components/home-comp/CategoryAd";
+import BrandList from "@/components/shop/brand-list";
+import FeaturedProductGrid from "@/components/home-comp/featured-product-grid";
+import CategoryCarousel from "@/components/home-comp/category-carousel";
+import { getCategoriesByIds } from "@/lib/woocommerce";
+import RecentPosts from "@/components/home-comp/recent-posts";
+import CategoryProductListRow from "@/components/home-comp/category-product-list-row";
 
-// Icons
-import {
-  ShoppingBag,
-  ShoppingCart,
-  Layers,
-  Pen,
-  User,
-  CreditCard,
-  Folder,
-  Tag,
-} from "lucide-react";
-import { WordPressIcon } from "@/components/icons/wordpress";
-import { NextJsIcon } from "@/components/icons/nextjs";
-import { WooCommerceIcon } from "@/components/icons/woocommerce";
 
-export default function Home() {
+export default async function Home() {
+  // Define your Category IDs for the carousel
+  const categoryCarouselIds = [39, 70, 63, 40, 45, 57]; // Replace with your actual IDs
+  const carouselCategories = await getCategoriesByIds(categoryCarouselIds);
+
   return (
-    <Section>
-      <Container>
-        <main className="space-y-6">
-          <Prose>
-            <h1>Headless WooCommerce with Next.js</h1>
+    <>
+      {/* 1. Hero Section */}
+      <Section id="hero-section" className="md:py-0">
+        <Container className="max-w-7xl mt-10 sm:p-0 p-0">
+          <HomeHero />
+        </Container>
+      </Section>
 
-            <p>
-              This is <a href="https://github.com/9d8dev/next-woo">next-woo</a>, a
-              headless WooCommerce storefront built with Next.js 16, React 19,
-              and TypeScript. It features a complete e-commerce experience with
-              products, cart, checkout, and customer accounts. Built with{" "}
-              <a href="https://ui.shadcn.com">shadcn/ui</a>,{" "}
-              <a href="https://craft-ds.com">craft-ds</a>, and Tailwind CSS.
-            </p>
-          </Prose>
+      <Section id="home-main-content" className="md:py-0">
+        <Container className="max-w-7xl lg:px-0 sm:p-0">
+          
+          {/* 2. Featured Product Grid (Now First) */}
+          <FeaturedProductGrid />
 
-          <div className="flex justify-between items-center gap-4">
-            <a
-              className="h-auto block"
-              href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2F9d8dev%2Fnext-woo&env=WORDPRESS_URL,WORDPRESS_HOSTNAME,WORDPRESS_WEBHOOK_SECRET,WC_CONSUMER_KEY,WC_CONSUMER_SECRET&envDescription=WordPress%20URL%2C%20hostname%20for%20images%2C%20webhook%20secret%2C%20and%20WooCommerce%20API%20credentials&project-name=next-woo&repository-name=next-woo&demo-title=Next.js%20WooCommerce%20Starter&demo-url=https%3A%2F%2Fnext-woo.com"
-            >
-              {/* eslint-disable-next-line */}
-              <img
-                className="not-prose my-4"
-                src="https://vercel.com/button"
-                alt="Deploy with Vercel"
-                width={105}
-                height={32.62}
-              />
-            </a>
+          {/* 3. Category Carousel (Now Below Featured) */}
+          <CategoryCarousel categories={carouselCategories} />
 
-            <div className="flex gap-2 items-center">
-              <WooCommerceIcon className="text-foreground" width={36} height={36} />
-              <WordPressIcon className="text-foreground" width={32} height={32} />
-              <NextJsIcon className="text-foreground" width={32} height={32} />
+          <div className="w-full grid gap-6 grid-cols-4 py-12">
+            <div className="">
+              {/* Banner Ad */}
+              <CategoryAd categorySlug="sidebar-ad" />
+            </div>
+            <div className="lg:col-span-3">
+              <div className="flex items-center justify-between">
+        <h3 className="text-3xl font-bold text-blue-950">Today's Top <span className="text-red-700">Featured</span></h3>
+        <Link 
+          href={`/shop/category/steal-the-deal`}
+          className="text-sm font-medium text-primary hover:underline"
+        >
+          View All <span className="text-red-700">→</span>
+        </Link>
+      </div>
+             {/* 4. Category Specific Sections */}
+          <CategoryProductList
+            categoryId={48} 
+            count={8} 
+          /> 
+              </div>            
+          </div>
+<div className="w-full grid gap-6 grid-cols-2 py-12">
+            <div className="">
+              {/* Banner left Ad */}
+              <CategoryAd categorySlug="home-two-call-left-add" />
+            </div>
+          <div className="">
+              {/* Banner right Ad */}
+              <CategoryAd categorySlug="home-two-call-right-add" />
             </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-4 mt-6">
-            {/* Shop Links */}
-            <Link
-              className="border h-48 bg-accent/50 rounded-lg p-4 flex flex-col justify-between hover:scale-[1.02] transition-all"
-              href="/shop"
-            >
-              <ShoppingBag size={32} />
-              <span>
-                Shop
-                <span className="block text-sm text-muted-foreground">
-                  Browse all products
-                </span>
-              </span>
-            </Link>
-            <Link
-              className="border h-48 bg-accent/50 rounded-lg p-4 flex flex-col justify-between hover:scale-[1.02] transition-all"
-              href="/cart"
-            >
-              <ShoppingCart size={32} />
-              <span>
-                Cart
-                <span className="block text-sm text-muted-foreground">
-                  View your shopping cart
-                </span>
-              </span>
-            </Link>
-            <Link
-              className="border h-48 bg-accent/50 rounded-lg p-4 flex flex-col justify-between hover:scale-[1.02] transition-all"
-              href="/checkout"
-            >
-              <CreditCard size={32} />
-              <span>
-                Checkout
-                <span className="block text-sm text-muted-foreground">
-                  Complete your purchase
-                </span>
-              </span>
-            </Link>
-
-            {/* Account Link - WooCommerce */}
-            <a
-              className="border h-48 bg-accent/50 rounded-lg p-4 flex flex-col justify-between hover:scale-[1.02] transition-all"
-              href={`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/my-account`}
-            >
-              <User size={32} />
-              <span>
-                My Account
-                <span className="block text-sm text-muted-foreground">
-                  Login, orders, and settings
-                </span>
-              </span>
-            </a>
-            <Link
-              className="border h-48 bg-accent/50 rounded-lg p-4 flex flex-col justify-between hover:scale-[1.02] transition-all"
-              href="/posts/categories"
-            >
-              <Tag size={32} />
-              <span>
-                Categories
-                <span className="block text-sm text-muted-foreground">
-                  Browse by category
-                </span>
-              </span>
-            </Link>
-
-            {/* Blog Links */}
-            <Link
-              className="border h-48 bg-accent/50 rounded-lg p-4 flex flex-col justify-between hover:scale-[1.02] transition-all"
-              href="/posts"
-            >
-              <Pen size={32} />
-              <span>
-                Blog
-                <span className="block text-sm text-muted-foreground">
-                  Read our latest posts
-                </span>
-              </span>
-            </Link>
-            <Link
-              className="border h-48 bg-accent/50 rounded-lg p-4 flex flex-col justify-between hover:scale-[1.02] transition-all"
-              href="/pages"
-            >
-              <Layers size={32} />
-              <span>
-                Pages
-                <span className="block text-sm text-muted-foreground">
-                  Static content pages
-                </span>
-              </span>
-            </Link>
-            <a
-              className="border h-48 bg-accent/50 rounded-lg p-4 flex flex-col justify-between hover:scale-[1.02] transition-all"
-              href="https://github.com/9d8dev/next-woo"
-            >
-              <Folder size={32} />
-              <span>
-                GitHub
-                <span className="block text-sm text-muted-foreground">
-                  View source code
-                </span>
-              </span>
-            </a>
-            <a
-              className="border h-48 bg-accent/50 rounded-lg p-4 flex flex-col justify-between hover:scale-[1.02] transition-all"
-              href="https://github.com/9d8dev/next-woo/tree/main/plugin"
-            >
-              <Folder size={32} />
-              <span>
-                Plugin
-                <span className="block text-sm text-muted-foreground">
-                  WordPress revalidation plugin
-                </span>
-              </span>
-            </a>
+          <div className="grid gap-4 grid-cols-4 py-8">
+            <div>
+              <h4 className="font-bold mb-3">Price Drop Alert</h4>
+              <CategoryProductListRow 
+            categoryId={76} 
+            count={3} 
+          />
+            </div>
+            <div>
+              <h4 className="font-bold mb-3">New Releases</h4>
+              <CategoryProductListRow 
+            categoryId={77} 
+            count={3} 
+          />
+            </div>
+            <div>
+              <h4 className="font-bold mb-3">Trending</h4>
+              <CategoryProductListRow 
+            categoryId={78} 
+            count={3} 
+          />
+            </div>
+            <div>
+              <h4 className="font-bold mb-3">Top Rated</h4>
+              <CategoryProductListRow 
+            categoryId={79} 
+            count={3} 
+          />
+            </div>
           </div>
-        </main>
-      </Container>
-    </Section>
+          <div className="w-full py-12">
+            {/* Banner mid Ad */}
+              <CategoryAd categorySlug="middle-banner" />
+          </div>
+        </Container>
+      </Section>
+
+      {/* 5. Brands Section */}
+      <Section id="home-page-brand-sec" className="md:py-0">
+        <Container className="max-w-7xl lg:px-0">
+          <BrandList />      
+        </Container>
+      </Section>
+      {/* 6. Recent Blog Posts (New) */}
+      <RecentPosts />
+      <Section id="home-page-defence-sec" className="md:py-0">
+        <Container className="max-w-7xl lg:px-0">
+          <div className="w-full grid gap-6 grid-cols-2 mb-12">
+            <div className="">
+              {/* Banner left Ad */}
+              <CategoryAd categorySlug="defence-banner" />
+            </div>
+          <div className="">
+              {/* Banner right Ad */}
+              <CategoryAd categorySlug="orphanage-banner" />
+            </div>
+          </div>
+        </Container>
+      </Section>
+    </>
   );
 }

@@ -1,158 +1,120 @@
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 
 import {
-  getProducts,
+  getFilteredProducts,
   getProductCategoryBySlug,
-  getAllCategorySlugs,
+  getAllAttributes,
+  getAttributeTerms,
 } from "@/lib/woocommerce";
 
-import { Section, Container, Prose } from "@/components/craft";
+import { Section, Container } from "@/components/craft";
 import { ProductGrid } from "@/components/shop";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+import { FilterSidebar } from "@/components/shop/filter-sidebar"; 
+import { PaginationWrapper } from "@/components/shop/pagination-wrapper";
+import HomeHero from "@/components/home-comp/home-hero";
 
 interface CategoryPageProps {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<any>;
 }
 
-export async function generateStaticParams() {
-  const slugs = await getAllCategorySlugs();
-  return slugs;
-}
-
-export async function generateMetadata({
-  params,
-}: CategoryPageProps): Promise<Metadata> {
+export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
   const { slug } = await params;
-  const category = await getProductCategoryBySlug(slug);
-
-  if (!category) {
-    return {
-      title: "Category Not Found",
-    };
-  }
-
-  return {
-    title: category.name,
-    description: category.description || `Browse ${category.name} products`,
-  };
-}
-
-export default async function CategoryPage({
-  params,
-  searchParams,
-}: CategoryPageProps) {
-  const { slug } = await params;
-  const { page: pageParam } = await searchParams;
+  const sParams = await searchParams;
 
   const category = await getProductCategoryBySlug(slug);
+  if (!category) notFound();
 
-  if (!category) {
-    notFound();
-  }
+  const page = sParams.page ? parseInt(sParams.page, 10) : 1;
 
-  const page = pageParam ? parseInt(pageParam, 10) : 1;
-  const productsPerPage = 12;
+  // 1. Fetch Filters & Products in Parallel
+  // We fetch a larger batch of products (per_page: 100) to identify all available attributes in this category
+  const [allAttributes, productsResponse, filterReferenceResponse] = await Promise.all([
+    getAllAttributes(),
+    getFilteredProducts(page, 12, { 
+      ...sParams, 
+      category: category.id,
+      min_price: sParams.min_price ? Number(sParams.min_price) : undefined,
+      max_price: sParams.max_price ? Number(sParams.max_price) : undefined,
+    }),
+    getFilteredProducts(1, 100, { category: category.id }) 
+  ]);
 
-  const { data: products, headers } = await getProducts(page, productsPerPage, {
-    category: category.id,
+  // 2. Build a Set of attribute terms that actually exist in this category's products
+  const availableTermsInSet = new Set<string>();
+  filterReferenceResponse.data.forEach((product: any) => {
+    product.attributes?.forEach((attr: any) => {
+      attr.options?.forEach((option: string) => availableTermsInSet.add(option));
+    });
   });
 
-  const { total, totalPages } = headers;
+  // 3. Fetch Attribute Terms and filter them based on what's available in this category
+  const attributes = await Promise.all(
+    allAttributes.map(async (attr: any) => {
+      const allTerms = await getAttributeTerms(attr.id);
+      
+      // Only include terms that actually appear in the products of this category
+      const filteredOptions = allTerms
+        .filter((term: any) => availableTermsInSet.has(term.name))
+        .map((term: any) => ({ label: term.name, value: term.slug }));
 
-  const createPaginationUrl = (newPage: number) => {
-    const urlParams = new URLSearchParams();
-    if (newPage > 1) urlParams.set("page", newPage.toString());
-    return `/shop/category/${slug}${urlParams.toString() ? `?${urlParams.toString()}` : ""}`;
-  };
+      return {
+        id: attr.slug,
+        label: attr.name,
+        options: filteredOptions,
+      };
+    })
+  );
+
+  // Filter out entire attribute groups (like 'Color') if they have no valid options for this category
+  const activeAttributes = attributes.filter(attr => attr.options.length > 0);
+
+  const { data: products, headers } = productsResponse;
 
   return (
-    <Section>
-      <Container>
-        <div className="space-y-8">
-          {/* Breadcrumb */}
-          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Link href="/shop" className="hover:text-foreground">
-              Shop
-            </Link>
-            <span>/</span>
-            <span className="text-foreground">{category.name}</span>
-          </nav>
+    <Section className="py-0 md:py-0">
+      <Container className="max-w-7xl lg:px-0">
+        <div className="space-y-8">         
 
-          <Prose>
-            <h1>{category.name}</h1>
-            <p className="text-muted-foreground">
-              {total} {total === 1 ? "product" : "products"}
-            </p>
-          </Prose>
+          {/* Banner */}
+          <HomeHero />
 
-          {/* Category Image */}
-          {category.image && (
-            <div className="w-full h-48 rounded-lg overflow-hidden bg-muted">
-              <img
-                src={category.image.src}
-                alt={category.name}
-                className="w-full h-full object-cover"
-              />
+          <div className="flex flex-col md:flex-row gap-8">
+            {/* Sidebar with Filtered Attributes */}
+            <aside className="w-full md:w-72 shrink-0">
+               <div className="sticky top-24">
+                  <FilterSidebar attributes={activeAttributes} />
+               </div>
+            </aside>
+
+            <div className="flex-1">
+              <nav className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground mb-6 justify-end border-b pb-4">
+                <Link href="/shop" className="hover:text-foreground text-xs uppercase">Shop</Link>
+                <span>/</span>
+                <span 
+                    className="text-foreground font-medium" 
+                    dangerouslySetInnerHTML={{ __html: category.name }} 
+                />
+                <span className="mx-2 text-border">|</span>
+                <p className="text-muted-foreground">
+                  Showing <span className="text-foreground font-semibold">{headers.total}</span> products
+                </p>
+              </nav>
+
+              {products.length > 0 ? (
+                <>
+                  <ProductGrid products={products} columns={3} />
+                  <PaginationWrapper totalPages={headers.totalPages} page={page} />
+                </>
+              ) : (
+                <div className="py-32 text-center border rounded-xl border-dashed">
+                  <p className="text-muted-foreground text-lg">No products match your current filters.</p>
+                </div>
+              )}
             </div>
-          )}
-
-          <ProductGrid products={products} columns={4} />
-
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center py-8">
-              <Pagination>
-                <PaginationContent>
-                  {page > 1 && (
-                    <PaginationItem>
-                      <PaginationPrevious href={createPaginationUrl(page - 1)} />
-                    </PaginationItem>
-                  )}
-
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter((pageNum) => {
-                      return (
-                        pageNum === 1 ||
-                        pageNum === totalPages ||
-                        Math.abs(pageNum - page) <= 1
-                      );
-                    })
-                    .map((pageNum, index, array) => {
-                      const showEllipsis =
-                        index > 0 && pageNum - array[index - 1] > 1;
-                      return (
-                        <div key={pageNum} className="flex items-center">
-                          {showEllipsis && <span className="px-2">...</span>}
-                          <PaginationItem>
-                            <PaginationLink
-                              href={createPaginationUrl(pageNum)}
-                              isActive={pageNum === page}
-                            >
-                              {pageNum}
-                            </PaginationLink>
-                          </PaginationItem>
-                        </div>
-                      );
-                    })}
-
-                  {page < totalPages && (
-                    <PaginationItem>
-                      <PaginationNext href={createPaginationUrl(page + 1)} />
-                    </PaginationItem>
-                  )}
-                </PaginationContent>
-              </Pagination>
-            </div>
-          )}
+          </div>
         </div>
       </Container>
     </Section>

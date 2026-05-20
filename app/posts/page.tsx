@@ -74,7 +74,7 @@ export default async function Page({
 
   return (
     <Section>
-      <Container>
+      <Container className="max-w-7xl md:px-0">
         <div className="space-y-8">
           <Prose>
             <h2>All Posts</h2>
@@ -98,7 +98,7 @@ export default async function Page({
           </div>
 
           {posts.length > 0 ? (
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid md:grid-cols-4 gap-4">
               {posts.map((post) => (
                 <PostCard key={post.id} post={post} />
               ))}

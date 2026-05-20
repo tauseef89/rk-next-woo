@@ -73,7 +73,15 @@ export interface ProductMetaData {
   key: string;
   value: string | number | boolean | object;
 }
-
+export interface ProductBrand {
+  id: number;
+  name: string;
+  slug: string;
+  image?: {
+    src: string;
+    alt?: string;
+  };
+}
 // Product
 export interface Product {
   id: number;
@@ -142,6 +150,11 @@ export interface Product {
   price_html: string;
   related_ids: number[];
   meta_data: ProductMetaData[];
+  brands?: ProductBrand[]; // Add this line to define the brands property
+  acf?: {
+    technical_specifications?: string; // Add your specific field here
+    [key: string]: any;               // Allow for other ACF fields too
+  };
 }
 
 // Product Variation

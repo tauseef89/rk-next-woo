@@ -91,7 +91,7 @@ export function VariationSelector({
           const selectedValue = selectedAttributes[attribute.name.toLowerCase()];
 
           return (
-            <div key={attribute.id} className="space-y-2">
+            <div key={attribute.name} className="space-y-2">
               <Label>{attribute.name}</Label>
               <div className="flex flex-wrap gap-2">
                 {attribute.options.map((option) => {

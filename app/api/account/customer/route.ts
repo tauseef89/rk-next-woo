@@ -1,0 +1,36 @@
+import { NextResponse } from "next/server";
+
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const userId = searchParams.get("userId");
+
+  if (!userId) {
+    return NextResponse.json({ message: "User ID is required" }, { status: 400 });
+  }
+
+  try {
+    const auth = Buffer.from(
+      `${process.env.WC_CONSUMER_KEY}:${process.env.WC_CONSUMER_SECRET}`
+    ).toString("base64");
+
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/wc/v3/customers/${userId}`,
+      {
+        headers: {
+          Authorization: `Basic ${auth}`,
+        },
+        cache: 'no-store'
+      }
+    );
+
+    const customer = await response.json();
+
+    if (!response.ok) {
+      return NextResponse.json(customer, { status: response.status });
+    }
+
+    return NextResponse.json(customer);
+  } catch (error) {
+    return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
+  }
+}

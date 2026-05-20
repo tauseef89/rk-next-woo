@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: wordpressHostname,
         port: "",
-        pathname: "/**",
+        pathname: '/wp-content/uploads/**',
       },
     ],
   },

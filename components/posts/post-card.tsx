@@ -25,7 +25,7 @@ export function PostCard({ post }: { post: Post }) {
       href={`/posts/${post.slug}`}
       className={cn(
         "border p-4 bg-accent/30 rounded-lg group flex justify-between flex-col not-prose gap-8",
-        "hover:bg-accent/75 transition-all"
+        "hover:bg-accent/75 transition-all "
       )}
     >
       <div className="flex flex-col gap-4">
@@ -48,9 +48,9 @@ export function PostCard({ post }: { post: Post }) {
           dangerouslySetInnerHTML={{
             __html: post.title?.rendered || "Untitled Post",
           }}
-          className="text-xl text-primary font-medium group-hover:underline decoration-muted-foreground underline-offset-4 decoration-dotted transition-all"
+          className="text-xl text-primary font-medium group-hover:underline decoration-muted-foreground underline-offset-4 decoration-dotted transition-all hover:text-red-700"
         ></div>
-        <p className="text-sm">{excerpt}</p>
+        <p className="text-sm" dangerouslySetInnerHTML={{ __html: excerpt}}></p>
       </div>
 
       <div className="flex flex-col gap-4">

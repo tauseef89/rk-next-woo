@@ -176,3 +176,16 @@
         @apply bg-background text-foreground;
     }
 }
+body{
+    overflow-x: hidden
+}
+.product_short-description {
+	color: #000;
+}
+.product_short-description h3{
+    margin-bottom: 10px;
+    font-size: 18px;
+}
+.product_short-description li{
+    font-size: 14px;
+}

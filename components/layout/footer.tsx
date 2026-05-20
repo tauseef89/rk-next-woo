@@ -1,34 +1,24 @@
 import Link from "next/link";
-import Image from "next/image";
 import { Section, Container } from "@/components/craft";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { mainMenu, contentMenu } from "@/menu.config";
-import { siteConfig } from "@/site.config";
-import Logo from "@/public/logo.svg";
-
+import { mainMenu, contentMenu, policyMenu } from "@/menu.config";
+import { NewsletterForm } from "./newsletter-form";
+import FooterMegaMenu from "./footer-mega-menu";
+import Image from "next/image";
+import Features from "./features";
 export function Footer() {
   return (
     <footer>
-      <Section>
-        <Container className="grid md:grid-cols-[1.5fr_0.5fr_0.5fr] gap-12">
+    <Features /> {/* This adds the 4 boxes */}
+      <Section className="bg-[#0a2454]">
+        <Container className="max-w-7xl lg:px-0 grid md:grid-cols-[1.5fr_0.5fr_0.5fr_0.5fr] gap-12">
           <div className="flex flex-col gap-6 not-prose">
-            <Link href="/">
-              <h3 className="sr-only">{siteConfig.site_name}</h3>
-              <Image
-                src={Logo}
-                alt="Logo"
-                className="dark:invert"
-                width={42}
-                height={26.44}
-              />
-            </Link>
-            <p>{siteConfig.site_description}</p>
+            <NewsletterForm />
           </div>
           <div className="flex flex-col gap-2 text-sm">
-            <h5 className="font-medium text-base">Website</h5>
+            <h5 className="font-medium text-base text-white">Website</h5>
             {Object.entries(mainMenu).map(([key, href]) => (
               <Link
-                className="hover:underline underline-offset-4"
+                className="hover:underline underline-offset-4 text-gray-400 hover:text-white"
                 key={href}
                 href={href}
               >
@@ -37,10 +27,10 @@ export function Footer() {
             ))}
           </div>
           <div className="flex flex-col gap-2 text-sm">
-            <h5 className="font-medium text-base">Blog</h5>
+            <h5 className="font-medium text-base text-white">Blog</h5>
             {Object.entries(contentMenu).map(([key, href]) => (
               <Link
-                className="hover:underline underline-offset-4"
+                className="hover:underline underline-offset-4 text-gray-400 hover:text-white"
                 key={href}
                 href={href}
               >
@@ -48,14 +38,89 @@ export function Footer() {
               </Link>
             ))}
           </div>
+          <div className="flex flex-col gap-2 text-sm">
+            <h5 className="font-medium text-base text-white">Policy and Disclosure</h5>
+            {policyMenu.map((parent) => (
+              <Link
+                className="hover:underline underline-offset-4 text-gray-400 hover:text-white"
+                key={parent.slug}
+                href={parent.slug}
+              >
+                {parent.name}
+              </Link>
+            ))}
+          </div>
         </Container>
-        <Container className="border-t not-prose flex flex-col md:flex-row md:gap-2 gap-6 justify-between md:items-center">
-          <ThemeToggle />
-          <p className="text-muted-foreground">
-            &copy; <a href="https://9d8.dev">9d8</a>. All rights reserved.
-            2025-present.
-          </p>
+        <Container className="max-w-7xl lg:px-0 border-t border-gray-700 not-prose">
+          <FooterMegaMenu />
         </Container>
+        
+<Container className="max-w-7xl lg:px-0 border-t border-gray-700 not-prose flex flex-col md:flex-row gap-8 justify-between items-center py-10">
+  
+  {/* Column 1: Copyright Info */}
+  <div className="flex flex-col gap-1 text-center md:text-left">
+    <p className="text-sm font-medium text-gray-400">
+      &copy; 2000-2026, Rakesh Retails. All rights reserved.
+    </p>
+    <p className="text-[11px] text-muted-foreground uppercase tracking-widest">
+      Premium Electronics & Digital Store
+    </p>
+  </div>
+
+  {/* Column 2: Payment & Partner Icons */}
+  <div className="flex flex-col items-center md:items-end gap-4">
+    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+      Secure Payment Partners
+    </span>
+    <div className="flex items-center gap-6 px-0 py-3 ">
+      {/* Amex */}
+      <Image 
+        src="/amex.png" 
+        alt="Amex" 
+        width={50} 
+        height={30} 
+        className="h-4 w-auto object-contain"
+      />
+      {/* Visa */}
+      <Image 
+        src="/visa.png" 
+        alt="Visa" 
+        width={50} 
+        height={30} 
+        className="h-4 w-auto object-contain"
+      />
+      
+      {/* Mastercard */}
+      <Image 
+        src="/mastercard.png" 
+        alt="Mastercard" 
+        width={40} 
+        height={30} 
+        className="h-4 w-auto object-contain"
+      />
+
+      {/* Pine Labs - Often seen in Indian Retail for EMI/POS */}
+      <Image 
+          src="/pinelabs.png" 
+          alt="Pine Labs" 
+          width={70} 
+          height={30} 
+          className="h-4 w-auto object-contain"
+        />
+
+      {/* UPI Icon Placeholder */}
+      <Image 
+        src="/payu.png" 
+        alt="UPI" 
+        width={50} 
+        height={30} 
+        className="h-4 w-auto object-contain"
+      />
+
+    </div>
+  </div>
+</Container>
+
       </Section>
     </footer>
   );

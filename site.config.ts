@@ -5,7 +5,7 @@ type SiteConfig = {
 };
 
 export const siteConfig: SiteConfig = {
-  site_name: "next-woo",
+  site_name: "Rakesh Retails",
   site_description: "Headless WooCommerce store powered by Next.js",
-  site_domain: "https://next-woo.com",
+  site_domain: "https://rakeshretails.com",
 };

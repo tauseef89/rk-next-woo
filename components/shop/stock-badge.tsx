@@ -1,10 +1,14 @@
-import type { Product } from "@/lib/woocommerce.d";
+"use client";
+
+// Add ProductVariation to your import
+import type { Product, ProductVariation } from "@/lib/woocommerce.d";
 import { isProductInStock, getProductStockMessage } from "@/lib/woocommerce";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 interface StockBadgeProps {
-  product: Product;
+  // Allow both Product and Variation types
+  product: Product | ProductVariation; 
   showQuantity?: boolean;
   className?: string;
 }
@@ -14,8 +18,10 @@ export function StockBadge({
   showQuantity = false,
   className,
 }: StockBadgeProps) {
-  const inStock = isProductInStock(product);
-  const message = getProductStockMessage(product);
+  // These helper functions from your lib should handle both types 
+  // as long as they only look at stock properties.
+  const inStock = isProductInStock(product as Product);
+  const message = getProductStockMessage(product as Product);
 
   const isLowStock =
     product.manage_stock &&
@@ -36,11 +42,12 @@ export function StockBadge({
         >
           <span
             className={cn(
-              "w-2 h-2 rounded-full mr-2",
-              isLowStock ? "bg-yellow-500" : "bg-green-500"
+              "w-2 h-2 rounded-full mr-2 shadow-sm",
+              isLowStock ? "bg-yellow-500 animate-pulse" : "bg-green-500"
             )}
           />
           {message}
+          {showQuantity && product.stock_quantity && ` (${product.stock_quantity} left)`}
         </Badge>
       ) : isBackorder ? (
         <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-50">
@@ -49,7 +56,7 @@ export function StockBadge({
         </Badge>
       ) : (
         <Badge variant="destructive">
-          <span className="w-2 h-2 rounded-full bg-red-300 mr-2" />
+          <span className="w-2 h-2 rounded-full bg-red-100 mr-2" />
           {message}
         </Badge>
       )}
