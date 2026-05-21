@@ -1,125 +1,424 @@
-import { NextRequest, NextResponse } from "next/server";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
 /**
- * SUCCESS / RETURN CALLBACK (GET handler)
- * Triggers when Pine Labs returns the customer's browser back to your platform.
- * URL Example: /api/callback/pinelabs?woo_order_id=1198&merchant_ref=WC1198T1779256382736
+ * =========================================================
+ * WooCommerce Order Update Helper
+ * =========================================================
  */
-export async function GET(request: NextRequest) {
+
+async function updateWooCommerceOrder(
+  orderId: string,
+  status: string,
+  transactionId?: string
+) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const wooOrderId = searchParams.get("woo_order_id");
-    const merchantRef = searchParams.get("merchant_ref");
-    
-    console.log(`[PINE RETURN GET SUCCESS] Order ID: ${wooOrderId}, Merchant Ref: ${merchantRef}`);
+    const authHeader = `Basic ${Buffer.from(
+      `${process.env.WC_CONSUMER_KEY}:${process.env.WC_CONSUMER_SECRET}`
+    ).toString("base64")}`;
 
-    if (!wooOrderId) {
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/checkout/failed?error=missing_order_id`);
-    }
-
-    /**
-     * OPTIONAL BACKEND SYNC (Highly Recommended):
-     * Proactively mark the order as processing over the REST API so the frontend order-receipt 
-     * component doesn't show "Pending Payment" while waiting for the async webhook to fire.
-     */
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/wc/v3/orders/${wooOrderId}`, {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/wc/v3/orders/${orderId}`,
+      {
         method: "PUT",
+
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Basic ${Buffer.from(
-            `${process.env.WOOCOMMERCE_CONSUMER_KEY}:${process.env.WOOCOMMERCE_CONSUMER_SECRET}`
-          ).toString("base64")}`,
+          "Content-Type":
+            "application/json",
+
+          Authorization:
+            authHeader,
         },
+
         body: JSON.stringify({
-          status: "processing",
-          transaction_id: merchantRef || "",
+          status,
+
+          set_paid:
+            status ===
+            "processing",
+
+          ...(transactionId && {
+            transaction_id:
+              String(transactionId),
+          }),
         }),
-      });
-      console.log(`[GET RETURN] WooCommerce Order #${wooOrderId} marked as processing.`);
-    } catch (wcErr) {
-      console.error("[GET RETURN] Silent fail updating WC order status:", wcErr);
-      // We catch silently so the user still goes to the success page if the WP API blips.
-    }
+      }
+    );
 
-    // Force redirect the browser to your clean frontend success page
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/checkout/success?order=${wooOrderId}`);
-
+    return response.ok;
   } catch (error) {
-    console.error("GET CALLBACK RUNTIME ERROR:", error);
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/checkout/failed`);
+    console.error(
+      "[WC UPDATE ERROR]",
+      error
+    );
+
+    return false;
   }
 }
 
 /**
- * FAILED / WEBHOOK ASYNC CALLBACK (POST handler)
- * Receives payment failure payloads or direct server-to-server notifications from Pine Labs
+ * =========================================================
+ * Parse Pine Labs Request Body
+ * =========================================================
  */
-export async function POST(request: NextRequest) {
+
+async function parseRequestBody(
+  request: NextRequest
+) {
   try {
-    console.log("[PINE CALLBACK POST RECEIVE]");
-    
-    let body: any = {};
-    try {
-      body = await request.json();
-      console.log("PINE POST BODY DATA:", JSON.stringify(body, null, 2));
-    } catch {
-      console.log("Could not parse JSON payload body from POST engine request context");
-    }
+    const contentType =
+      (
+        request.headers.get(
+          "content-type"
+        ) || ""
+      ).toLowerCase();
 
-    // Extract identifier fields from Pine Labs standard payload wrappers
-    const merchantRef = body?.merchant_order_reference || body?.data?.merchant_order_reference;
-    const paymentStatus = body?.payment_status || body?.data?.payment_status;
-    
-    // Fallback extraction from URL search parameters if Pine Labs appended queries to the POST route
-    const searchParams = request.nextUrl.searchParams;
-    const wooOrderId = searchParams.get("woo_order_id") || (merchantRef ? merchantRef.split("T")[0].replace("WC", "") : null);
+    /**
+     * JSON
+     */
 
-    if (wooOrderId) {
-      let targetWcStatus = "failed";
-      
-      // Determine real transaction state changes mapping back to WooCommerce structures
-      if (paymentStatus === "CAPTURED" || paymentStatus === "SUCCESS") {
-        targetWcStatus = "processing";
-      } else if (paymentStatus === "CANCELLED") {
-        targetWcStatus = "cancelled";
-      }
+    if (
+      contentType.includes(
+        "application/json"
+      )
+    ) {
+      const clone =
+        request.clone();
 
-      console.log(`[ASYNC POST STATUS] Updating WC Order #${wooOrderId} status to: ${targetWcStatus}`);
-
-      // Sync backend status state over WooCommerce API layer
-      await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/wc/v3/orders/${wooOrderId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Basic ${Buffer.from(
-            `${process.env.WC_CONSUMER_KEY}:${process.env.WC_CONSUMER_SECRET}`
-          ).toString("base64")}`,
-        },
-        body: JSON.stringify({
-          status: targetWcStatus,
-          customer_note: `Pine Labs transaction status update: ${paymentStatus || "FAILED"}`
-        }),
-      });
+      return await clone.json();
     }
 
     /**
-     * CRITICAL FIX: Do NOT try to redirect the server request using NextResponse.redirect().
-     * Instead, acknowledge receipt to Pine Labs with a 200 JSON object containing a redirect schema parameter.
+     * FORM DATA
      */
-    return NextResponse.json({
-      success: true,
-      message: "Callback collected successfully",
-      redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/failed`
-    }, { status: 200 });
 
+    if (
+      contentType.includes(
+        "multipart/form-data"
+      ) ||
+      contentType.includes(
+        "application/x-www-form-urlencoded"
+      )
+    ) {
+      const clone =
+        request.clone();
+
+      const formData =
+        await clone.formData();
+
+      const result: Record<
+        string,
+        any
+      > = {};
+
+      formData.forEach(
+        (value, key) => {
+          result[key] = value;
+        }
+      );
+
+      return result;
+    }
+
+    /**
+     * RAW TEXT
+     */
+
+    const clone =
+      request.clone();
+
+    const rawText =
+      await clone.text();
+
+    if (rawText) {
+      const params =
+        new URLSearchParams(
+          rawText
+        );
+
+      const result: Record<
+        string,
+        any
+      > = {};
+
+      params.forEach(
+        (value, key) => {
+          result[key] = value;
+        }
+      );
+
+      return result;
+    }
+
+    return {};
   } catch (error) {
-    console.error("POST CALLBACK RUNTIME ERROR:", error);
-    
-    // Always return a valid JSON error payload block to protect endpoint routing stability
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : "Internal processing exception context"
-    }, { status: 500 });
+    console.error(
+      "[BODY PARSE ERROR]",
+      error
+    );
+
+    return {};
   }
+}
+
+/**
+ * =========================================================
+ * Unified Pine Labs Callback Processor
+ * =========================================================
+ */
+
+async function processCallback(
+  request: NextRequest
+) {
+  try {
+    const searchParams =
+      request.nextUrl.searchParams;
+
+    let wooOrderId =
+      searchParams.get(
+        "woo_order_id"
+      );
+
+    let merchantRef =
+      searchParams.get(
+        "merchant_ref"
+      );
+
+    /**
+     * BODY
+     */
+
+    const parsedBody =
+      request.method === "POST"
+        ? await parseRequestBody(
+            request
+          )
+        : {};
+
+    const payload =
+      parsedBody?.data ||
+      parsedBody;
+
+    /**
+     * PAYMENT DATA
+     */
+
+    const paymentStatus =
+      payload
+        ?.payment_status ||
+      payload
+        ?.ppc_PaymentStatus ||
+      payload?.status ||
+      payload?.ppc_Status ||
+      "";
+
+    const responseCode =
+      payload
+        ?.ppc_ResponseCode ||
+      payload
+        ?.response_code ||
+      payload
+        ?.ppc_Parent_TxnStatus ||
+      "";
+
+    const transactionId =
+      payload?.order_id ||
+      payload
+        ?.ppc_PineLabsTxnId ||
+      payload
+        ?.ppc_UniqueMerchantTxnID ||
+      "";
+
+    /**
+     * Merchant Ref Fallbacks
+     */
+
+    if (
+      !merchantRef &&
+      payload?.merchant_order_reference
+    ) {
+      merchantRef =
+        payload.merchant_order_reference;
+    }
+
+    if (
+      !merchantRef &&
+      payload?.ppc_MerchantReferenceNo
+    ) {
+      merchantRef =
+        payload.ppc_MerchantReferenceNo;
+    }
+
+    /**
+     * Woo Order ID Extraction
+     */
+
+    if (
+      !wooOrderId &&
+      merchantRef
+    ) {
+      const cleanRef =
+        String(merchantRef);
+
+      if (
+        cleanRef.includes(
+          "T"
+        )
+      ) {
+        wooOrderId =
+          cleanRef
+            .split("T")[0]
+            .replace("WC", "");
+      } else {
+        wooOrderId =
+          cleanRef
+            .replace("WC", "")
+            .replace(
+              /\D/g,
+              ""
+            );
+      }
+    }
+
+    /**
+     * Validate Woo Order
+     */
+
+    if (!wooOrderId) {
+      return NextResponse.redirect(
+        `${process.env.NEXT_PUBLIC_APP_URL}/checkout/failed?error=no_order`
+      );
+    }
+
+    /**
+     * Normalize Status
+     */
+
+    const normalizedStatus =
+      String(
+        paymentStatus
+      ).toUpperCase();
+
+    const normalizedCode =
+      String(
+        responseCode
+      );
+
+    /**
+     * SUCCESS DETECTION
+     */
+
+    const successStatuses = [
+      "CAPTURED",
+      "SUCCESS",
+      "AUTHORIZED",
+      "PAID",
+      "CHARGED",
+      "PROCESSED",
+    ];
+
+    const successCodes = [
+      "1",
+      "4",
+      "200",
+    ];
+
+    const isSuccessful =
+      successStatuses.includes(
+        normalizedStatus
+      ) ||
+      successCodes.includes(
+        normalizedCode
+      );
+
+    /**
+     * WC STATUS
+     */
+
+    const wcStatus =
+      isSuccessful
+        ? "processing"
+        : "failed";
+
+    /**
+     * UPDATE WOO ORDER
+     */
+
+    await updateWooCommerceOrder(
+      wooOrderId,
+      wcStatus,
+      transactionId
+    );
+
+    /**
+     * Redirect Customer
+     */
+
+    const redirectPage =
+      isSuccessful
+        ? "success"
+        : "failed";
+
+    const redirectUrl =
+      `${process.env.NEXT_PUBLIC_APP_URL}/checkout/${redirectPage}?order=${wooOrderId}`;
+
+    return new NextResponse(
+      `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Redirecting...</title>
+
+          <meta charset="utf-8" />
+
+          <meta
+            http-equiv="refresh"
+            content="0;url=${redirectUrl}"
+          />
+        </head>
+
+        <body>
+          <script>
+            window.location.replace("${redirectUrl}");
+          </script>
+        </body>
+      </html>
+      `,
+      {
+        status: 200,
+
+        headers: {
+          "Content-Type":
+            "text/html; charset=utf-8",
+        },
+      }
+    );
+  } catch (error) {
+    console.error(
+      "[CALLBACK ERROR]",
+      error
+    );
+
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_APP_URL}/checkout/failed`
+    );
+  }
+}
+
+export async function GET(
+  request: NextRequest
+) {
+  return processCallback(
+    request
+  );
+}
+
+export async function POST(
+  request: NextRequest
+) {
+  return processCallback(
+    request
+  );
 }
