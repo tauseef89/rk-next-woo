@@ -889,7 +889,18 @@ export async function checkPincodeServiceability(pincode: string): Promise<boole
     return false;
   }
 }
+// ADD THIS FUNCTION to fetch your custom taxonomy brand list
+export async function getProductBrands(): Promise<any[]> {
+  // Fetches from the custom taxonomy endpoint provided by WooCommerce/Brand plugins
+  return woocommerceFetchGraceful<any[]>(
+    "products/brands", 
+    [], 
+    { per_page: 100 }, 
+    ["woocommerce", "brands"]
+  );
+}
 
+// UPDATE your getFilteredProducts function to support product_brand
 export async function getFilteredProducts(
   page: number = 1,
   perPage: number = 12,
@@ -904,11 +915,13 @@ export async function getFilteredProducts(
     min_price?: number;
     max_price?: number;
     stock_status?: "instock" | "outofstock" | "onbackorder";
-    // Added for attribute filtering (e.g., Brand, RAM)
     attribute?: string; 
     attribute_term?: string;
+    product_brand?: string; // Added explicit support for custom taxonomy strings
+    [key: string]: any; // Allows TypeScript to accept dynamic custom inputs like pa_brand
   }
 ): Promise<WooCommerceResponse<Product[]>> {
+  // 1. Build the base query payload object
   const query: Record<string, any> = {
     per_page: perPage,
     page,
@@ -916,16 +929,38 @@ export async function getFilteredProducts(
     ...params,
   };
 
+  // 2. FIXED: Dynamically capture your custom attributes (e.g., pa_brand, pa_color)
+  // Maps URL parameters onto standard WooCommerce API parameters
+  if (params) {
+    Object.keys(params).forEach((key) => {
+      if (key.startsWith("pa_") && params[key]) {
+        query["attribute"] = key;            // e.g., "pa_brand"
+        query["attribute_term"] = params[key]; // e.g., "daikin,voltas"
+        
+        // Clean up the raw dynamic key so it isn't duplicate-posted to WordPress
+        delete query[key]; 
+      }
+    });
+    // Handle custom brand taxonomy pass-through directly if present
+    if (params.product_brand) {
+      query["brand"] = params.product_brand; // Standard WordPress REST mapping for taxonomies
+    }
+  }
+
+  // 3. Setup caching configurations
   const cacheTags = ["woocommerce", "products", `products-page-${page}`];
 
-  // Dynamic Cache Tags
   if (params?.category) cacheTags.push(`products-category-${params.category}`);
   if (params?.tag) cacheTags.push(`products-tag-${params.tag}`);
   if (params?.search) cacheTags.push("products-search");
-  if (params?.attribute) cacheTags.push(`products-attr-${params.attribute}`);
+  if (params?.product_brand) cacheTags.push(`products-brand-${params.product_brand}`);
+  
+  // Use the newly mapped or existing attribute targets for cache tracking
+  if (query.attribute) cacheTags.push(`products-attr-${query.attribute}`);
 
   return woocommerceFetchPaginatedGraceful<Product>("products", query, cacheTags);
 }
+
 
 // ============================================================================
 // Attributes & Filters

@@ -1,75 +1,108 @@
 "use client";
 
-import { useWishlistStore } from "@/store/useWishlistStore";
+import { useState } from "react";
 import { Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useWishlistStore } from "@/store/useWishlistStore";
 
 export function WishlistToggle({ productId }: { productId: number }) {
-  const { items, addItem, removeItem } = useWishlistStore();
-  const [isSyncing, setIsSyncing] = useState(false); // Prevent double-clicks
-  
-  // Check if product is in the store
-  const isFavorite = items.some((item) => item.productId === productId);
+  const {
+    items,
+    addItem,
+    removeItem,
+    getProductIds,
+    syncToServer,
+  } = useWishlistStore();
 
-  const handleToggle = async (e: React.MouseEvent) => {
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const numericProductId = Number(productId);
+
+  const isFavorite = items.some(
+    (item) => Number(item.productId) === numericProductId
+  );
+
+  const handleToggle = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
 
     if (isSyncing) return;
+
+    if (!Number.isInteger(numericProductId) || numericProductId <= 0) {
+      console.error("Invalid productId:", productId);
+      return;
+    }
+
     setIsSyncing(true);
 
+    const currentWishlistIds = getProductIds();
+
+    const updatedWishlistIds = isFavorite
+      ? currentWishlistIds.filter((id) => Number(id) !== numericProductId)
+      : Array.from(new Set([...currentWishlistIds, numericProductId]));
+
     try {
+      // Optimistic UI update
       if (isFavorite) {
-        // 1. Remove from WordPress
-        const res = await fetch("/api/wishlist", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ productId, wishlistId: 0 }), // 0 targets default list
-        });
-
-        if (res.ok) {
-          removeItem(productId);
-        }
+        removeItem(numericProductId);
       } else {
-        // 2. Add to WordPress
-        const res = await fetch("/api/wishlist", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ productId, wishlistId: 0 }),
+        addItem({
+          itemId: numericProductId,
+          productId: numericProductId,
         });
-
-        if (res.ok) {
-          
-          const data = await res.json();
-          addItem({ 
-            itemId: data.item_id || productId, 
-            productId: productId 
-          });
-        }
       }
+
+      const result = await syncToServer(updatedWishlistIds);
+
+      if (result.status === 401) {
+        console.warn(
+          "User not logged in. Wishlist saved locally as guest wishlist."
+        );
+        return;
+      }
+
+      if (!result.success) {
+        // Rollback UI on server failure
+        if (isFavorite) {
+          addItem({
+            itemId: numericProductId,
+            productId: numericProductId,
+          });
+        } else {
+          removeItem(numericProductId);
+        }
+
+        console.error("Wishlist server error:", result.message);
+        return;
+      }
+
+      console.log("Wishlist saved:", result.wishlist);
     } catch (error) {
-      console.error("Wishlist sync error:", error);
+      console.error("Wishlist toggle error:", error);
     } finally {
       setIsSyncing(false);
     }
   };
 
   return (
-    <button 
-      onClick={handleToggle} 
+    <button
+      type="button"
+      onClick={handleToggle}
       disabled={isSyncing}
       className={cn(
         "p-2 transition-all hover:scale-110 active:scale-95",
         isSyncing && "opacity-50 cursor-not-allowed"
       )}
+      aria-label={isFavorite ? "Remove from wishlist" : "Add to wishlist"}
     >
-      <Heart 
-        size={24} 
+      <Heart
+        size={24}
         className={cn(
           "transition-colors duration-300",
-          isFavorite ? "fill-red-500 text-red-500" : "text-zinc-400 hover:text-zinc-600"
-        )} 
+          isFavorite
+            ? "fill-red-500 text-red-500"
+            : "text-zinc-400 hover:text-zinc-600"
+        )}
       />
     </button>
   );

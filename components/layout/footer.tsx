@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Section, Container } from "@/components/craft";
-import { mainMenu, contentMenu, policyMenu } from "@/menu.config";
+import { mainMenu, contentMenu, policyMenu, shopMenu } from "@/menu.config";
 import { NewsletterForm } from "./newsletter-form";
 import FooterMegaMenu from "./footer-mega-menu";
 import Image from "next/image";
@@ -27,8 +27,8 @@ export function Footer() {
             ))}
           </div>
           <div className="flex flex-col gap-2 text-sm">
-            <h5 className="font-medium text-base text-white">Blog</h5>
-            {Object.entries(contentMenu).map(([key, href]) => (
+            <h5 className="font-medium text-base text-white">Quick Links</h5>
+            {Object.entries(shopMenu).map(([key, href]) => (
               <Link
                 className="hover:underline underline-offset-4 text-gray-400 hover:text-white"
                 key={href}
@@ -63,7 +63,7 @@ export function Footer() {
       &copy; 2000-2026, Rakesh Retails. All rights reserved.
     </p>
     <p className="text-[11px] text-muted-foreground uppercase tracking-widest">
-      Premium Electronics & Digital Store
+      Delhi NCR’s Largest Electronics & Digital Retailer.
     </p>
   </div>
 
@@ -73,31 +73,6 @@ export function Footer() {
       Secure Payment Partners
     </span>
     <div className="flex items-center gap-6 px-0 py-3 ">
-      {/* Amex */}
-      <Image 
-        src="/amex.png" 
-        alt="Amex" 
-        width={50} 
-        height={30} 
-        className="h-4 w-auto object-contain"
-      />
-      {/* Visa */}
-      <Image 
-        src="/visa.png" 
-        alt="Visa" 
-        width={50} 
-        height={30} 
-        className="h-4 w-auto object-contain"
-      />
-      
-      {/* Mastercard */}
-      <Image 
-        src="/mastercard.png" 
-        alt="Mastercard" 
-        width={40} 
-        height={30} 
-        className="h-4 w-auto object-contain"
-      />
 
       {/* Pine Labs - Often seen in Indian Retail for EMI/POS */}
       <Image 
@@ -108,14 +83,7 @@ export function Footer() {
           className="h-4 w-auto object-contain"
         />
 
-      {/* UPI Icon Placeholder */}
-      <Image 
-        src="/payu.png" 
-        alt="UPI" 
-        width={50} 
-        height={30} 
-        className="h-4 w-auto object-contain"
-      />
+      
 
     </div>
   </div>

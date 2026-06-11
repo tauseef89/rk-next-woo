@@ -4,7 +4,9 @@ import { useState } from "react";
 import { ShoppingCart, Plus, Minus, Loader2 } from "lucide-react";
 
 import type { Product, ProductVariation } from "@/lib/woocommerce.d";
-import { isProductInStock } from "@/lib/woocommerce";
+import type { AppliedApplianceExchange } from "@/components/shop/appliance-exchange-product";
+import type { AppliedExtendedWarranty } from "@/components/shop/extended-warranty";
+
 import { useCart } from "@/components/shop/cart-provider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -12,17 +14,29 @@ import { cn } from "@/lib/utils";
 interface AddToCartButtonProps {
   product: Product;
   variation?: ProductVariation | null;
+  exchange?: AppliedApplianceExchange | null;
+  extendedWarranty?: AppliedExtendedWarranty | null;
   className?: string;
   showQuantity?: boolean;
+}
+
+function parsePrice(price: string | number | undefined | null) {
+  if (!price) return 0;
+  if (typeof price === "number") return price;
+
+  return Number(price.replace(/[^0-9.]/g, "")) || 0;
 }
 
 export function AddToCartButton({
   product,
   variation,
+  exchange,
+  extendedWarranty,
   className,
   showQuantity = true,
 }: AddToCartButtonProps) {
   const { addItem } = useCart();
+
   const [quantity, setQuantity] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
 
@@ -38,6 +52,28 @@ export function AddToCartButton({
 
   const maxQuantity = checkableItem.stock_quantity || 99;
 
+  const originalPrice = variation?.price || product.price;
+  const originalPriceNumber = parsePrice(originalPrice);
+
+  // If exchange is selected, use exchange final price.
+  // Otherwise, use normal product/variation price.
+  const priceAfterExchange = exchange
+    ? exchange.finalPrice
+    : originalPriceNumber;
+
+  // Extended warranty is 5% calculated on product page and passed here.
+  const warrantyPrice = extendedWarranty?.price || 0;
+
+  // Final cart price = normal/exchange price + warranty price
+  const cartPrice = String(priceAfterExchange + warrantyPrice);
+
+  const variationName = variation
+    ? ` - ${variation.attributes.map((a) => a.option).join(", ")}`
+    : "";
+
+  const exchangeName = exchange ? " - With Exchange" : "";
+  const warrantyName = extendedWarranty ? " - Extended Warranty" : "";
+
   const handleAddToCart = async () => {
     if (needsVariation || !inStock) return;
 
@@ -48,13 +84,42 @@ export function AddToCartButton({
         productId: product.id,
         variationId: variation?.id,
         quantity,
-        name: product.name + (variation ? ` - ${variation.attributes.map((a) => a.option).join(", ")}` : ""),
-        price: variation?.price || product.price,
+        name: product.name + variationName + exchangeName + warrantyName,
+        price: cartPrice,
+        originalPrice,
         image: (variation?.image || product.images[0])?.src,
         attributes: variation?.attributes,
+
+        // Exchange details
+        exchangeApplied: Boolean(exchange),
+        exchange: exchange
+          ? {
+              category: exchange.category,
+              brand: exchange.brand,
+              type: exchange.type,
+              capacity: exchange.capacity,
+              age: exchange.age,
+              pincode: exchange.pincode,
+              workingCondition: exchange.workingCondition,
+              bodyCondition: exchange.bodyCondition,
+              accessoriesAvailable: exchange.accessoriesAvailable,
+              exchangeValue: exchange.exchangeValue,
+              totalExchangeDiscount: exchange.totalExchangeDiscount,
+              finalPrice: exchange.finalPrice,
+            }
+          : null,
+
+        // Extended warranty details
+        extendedWarrantyApplied: Boolean(extendedWarranty),
+        extendedWarranty: extendedWarranty
+          ? {
+              title: extendedWarranty.title,
+              percentage: extendedWarranty.percentage,
+              price: extendedWarranty.price,
+            }
+          : null,
       });
 
-      // Reset quantity after adding
       setQuantity(1);
     } finally {
       setIsAdding(false);
@@ -83,10 +148,10 @@ export function AddToCartButton({
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
-      {/* Quantity Selector */}
       {showQuantity && (
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Quantity:</span>
+
           <div className="flex items-center border rounded-md">
             <Button
               type="button"
@@ -98,7 +163,9 @@ export function AddToCartButton({
             >
               <Minus className="h-4 w-4" />
             </Button>
+
             <span className="w-12 text-center font-medium">{quantity}</span>
+
             <Button
               type="button"
               variant="ghost"
@@ -113,7 +180,6 @@ export function AddToCartButton({
         </div>
       )}
 
-      {/* Add to Cart Button */}
       <Button
         onClick={handleAddToCart}
         disabled={needsVariation || isAdding}

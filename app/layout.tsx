@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 
 import type { Metadata } from "next";
 import CompareBar from "@/components/shop/CompareBar";
-import SignupPopup from "@/components/SignupPopup";
 
 const font = FontSans({
   subsets: ["latin"],
@@ -50,7 +49,6 @@ export default function RootLayout({
             <Footer />
             <CompareBar /> {/* [NEW COMPONENT] This will float globally */}
           </CartProvider>
-          <SignupPopup />
         </ThemeProvider>
       </body>
     </html>

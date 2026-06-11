@@ -1,7 +1,9 @@
+// app/shop/page.tsx
 import { 
   getFilteredProducts, 
   getAllAttributes, 
-  getAttributeTerms 
+  getAttributeTerms,
+  getProductBrands
 } from "@/lib/woocommerce";
 import { Section, Container } from "@/components/craft";
 import { ProductGrid } from "@/components/shop";
@@ -9,31 +11,44 @@ import { FilterSidebar } from "@/components/shop/filter-sidebar";
 import { PaginationWrapper } from "@/components/shop/pagination-wrapper";
 import HomeHero from "@/components/home-comp/home-hero";
 
+// Brand is isolated entirely from this attributes scope array list
+const ALLOWED_ATTRIBUTES = ["pa_capacity", "pa_star-rating", "pa_color"];
+
 export default async function ShopPage({ searchParams }: { searchParams: Promise<any> }) {
   const sParams = await searchParams;
   const page = Number(sParams.page) || 1;
 
-  // 1. Fetch Filters & Products in Parallel
-  const [allAttributes] = await Promise.all([
+  // Parallel fetch: get core attribute taxonomy metadata map schema along with brands taxonomy
+  const [allAttributes, rawBrands] = await Promise.all([
     getAllAttributes(),
+    getProductBrands()
   ]);
 
   const [attributes, productsResponse] = await Promise.all([
-    Promise.all(allAttributes.map(async (attr: any) => {
-      const terms = await getAttributeTerms(attr.id);
-      return {
-        id: attr.slug,
-        label: attr.name,
-        options: terms.map((t: any) => ({ label: t.name, value: t.slug })),
-      };
-    })),
+    Promise.all(
+      allAttributes
+        .filter((attr: any) => ALLOWED_ATTRIBUTES.includes(attr.slug))
+        .map(async (attr: any) => {
+          const terms = await getAttributeTerms(attr.id);
+          return {
+            id: attr.slug,
+            label: attr.name,
+            options: terms.map((t: any) => ({ label: t.name, value: t.id.toString() })),
+          };
+        })
+    ),
     getFilteredProducts(page, 12, {
       ...sParams,
-      // Fix: Convert strings from URL to numbers for the fetcher
       min_price: sParams.min_price ? Number(sParams.min_price) : undefined,
       max_price: sParams.max_price ? Number(sParams.max_price) : undefined,
     }),
   ]);
+
+  // Convert taxonomy models securely to Term ID map values for the sidebar checkboxes
+  const formattedBrands = rawBrands.map((b: any) => ({
+    label: b.name,
+    value: b.id.toString() 
+  }));
 
   const { data: products, headers } = productsResponse;
 
@@ -47,7 +62,10 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
         <div className="flex flex-col md:flex-row gap-8">
           <aside className="w-full md:w-72 shrink-0">
             <div className="sticky top-24">
-              <FilterSidebar attributes={attributes} />
+              <FilterSidebar 
+                attributes={attributes} 
+                brands={formattedBrands} 
+              />
             </div>
           </aside>
 

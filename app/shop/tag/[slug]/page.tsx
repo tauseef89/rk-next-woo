@@ -1,11 +1,11 @@
-// app/shop/[slug]/page.tsx
+// app/shop/tag/[slug]/page.tsx
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 
 import {
   getFilteredProducts,
-  getProductCategoryBySlug,
+  getProductTagBySlug,
   getAllAttributes,
   getAttributeTerms,
   getProductBrands // Fetches global brand library list
@@ -20,35 +20,35 @@ import { TaxonomyBannerImage } from "@/components/shop/taxonomy-banner-image";
 // Brands are managed separately through the custom taxonomy slot, so exclude pa_brand here
 const ALLOWED_ATTRIBUTES = ["pa_capacity", "pa_star-rating", "pa_color"];
 
-interface CategoryPageProps {
+interface TagPageProps {
   params: Promise<{ slug: string }>;
   searchParams: Promise<any>;
 }
 
-export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
+export default async function TagPage({ params, searchParams }: TagPageProps) {
   const { slug } = await params;
   const sParams = await searchParams;
 
-  const category = await getProductCategoryBySlug(slug);
-  if (!category) notFound();
+  const tag = await getProductTagBySlug(slug);
+  if (!tag) notFound();
 
   const page = sParams.page ? parseInt(sParams.page, 10) : 1;
 
-  // 1. Fetch Filters, Global Brands, and Category Products in Parallel
+  // 1. Fetch Filters, Global Brands, and Tagged Products in Parallel
   const [allAttributes, rawGlobalBrands, productsResponse, filterReferenceResponse] = await Promise.all([
     getAllAttributes(),
     getProductBrands(),
     getFilteredProducts(page, 12, { 
       ...sParams, 
-      category: category.id,
+      tag: tag.id, 
       min_price: sParams.min_price ? Number(sParams.min_price) : undefined,
       max_price: sParams.max_price ? Number(sParams.max_price) : undefined,
     }),
-    // Reference payload pass: fetches up to 100 items from this category to parse active items
-    getFilteredProducts(1, 100, { category: category.id }) 
+    // Reference payload pass: fetches up to 100 items with this tag to parse active properties
+    getFilteredProducts(1, 100, { tag: tag.id }) 
   ]);
 
-  // 2. Build look-up sets for BOTH attributes and custom brand taxonomies inside this category
+  // 2. Build look-up sets for BOTH attributes and custom brand taxonomies inside this tag context
   const availableTermsInSet = new Set<string>();
   const availableBrandIdsInSet = new Set<number>();
 
@@ -60,15 +60,14 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       });
     });
 
-    // B. FIXED: Parse and collect brand taxonomy IDs linked to the category products.
-    // Note: WooCommerce brand extensions usually attach brands as a property list named 'brands' or 'product_brand'.
+    // B. Parse and collect brand taxonomy IDs linked to the tagged products
     const productBrands = product.brands || product.product_brand || [];
     productBrands.forEach((b: any) => {
       if (b.id) availableBrandIdsInSet.add(b.id);
     });
   });
 
-  // 3. Filter your generic global attributes down to match ONLY this category's terms
+  // 3. Filter your generic global attributes down to match ONLY this tag's terms
   const attributes = await Promise.all(
     allAttributes
       .filter((attr: any) => ALLOWED_ATTRIBUTES.includes(attr.slug))
@@ -86,8 +85,8 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       })
   );
 
-  // 4. FIXED: Filter down your global brand taxonomy catalog to match ONLY brands present in this category
-  const formattedCategoryBrands = rawGlobalBrands
+  // 4. Filter down your global brand taxonomy catalog to match ONLY brands present under this tag
+  const formattedTagBrands = rawGlobalBrands
     .filter((brand: any) => availableBrandIdsInSet.has(brand.id))
     .map((brand: any) => ({
       label: brand.name,
@@ -101,29 +100,36 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
     <Section className="py-0 md:py-0">
       <Container className="max-w-7xl lg:px-0">
         <div className="space-y-8">         
-          {/* WordPress category banner image */}
-          <TaxonomyBannerImage type="category" slug={slug} />
-          
+          <TaxonomyBannerImage type="tag" slug={slug} />
+
           <div className="flex flex-col md:flex-row gap-8">
+            {/* Sidebar with Filtered Attributes */}
             <aside className="w-full md:w-72 shrink-0">
                <div className="sticky top-24">
-                  {/* Pipes only the brands physically present inside this category structure */}
+                  {/* Pipes only the brands physically present inside this tag structure */}
                   <FilterSidebar 
                     attributes={activeAttributes} 
-                    brands={formattedCategoryBrands} 
+                    brands={formattedTagBrands} 
                   />
                </div>
             </aside>
-            
+
             <div className="flex-1">
               <nav className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground mb-6 justify-end border-b pb-4">
                 <Link href="/shop" className="hover:text-foreground text-xs uppercase">Shop</Link>
                 <span>/</span>
-                <span className="text-foreground font-medium" dangerouslySetInnerHTML={{ __html: category.name }} />
+                <span className="text-xs uppercase text-muted-foreground">Tag</span>
+                <span>/</span>
+                <span 
+                    className="text-foreground font-medium" 
+                    dangerouslySetInnerHTML={{ __html: tag.name }} 
+                />
                 <span className="mx-2 text-border">|</span>
-                <p className="text-muted-foreground">Showing <span className="text-foreground font-semibold">{headers.total}</span> products</p>
+                <p className="text-muted-foreground">
+                  Showing <span className="text-foreground font-semibold">{headers.total}</span> products
+                </p>
               </nav>
-              
+
               {products.length > 0 ? (
                 <>
                   <ProductGrid products={products} columns={3} />

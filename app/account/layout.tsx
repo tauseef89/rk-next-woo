@@ -1,15 +1,25 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, MapPin, Package, UserCircle, LogOut } from "lucide-react";
-import { useAuthStore } from "@/store/useAuthStore"; // 1. Import Auth Store
-// import { useWishlistStore } from "@/store/useWishlistStore"; // 2. Import Wishlist Store
+import {
+  LayoutDashboard,
+  MapPin,
+  Package,
+  UserCircle,
+  LogOut,
+  Heart,
+} from "lucide-react";
+
+import { useAuthStore } from "@/store/useAuthStore";
+import { useWishlistStore } from "@/store/useWishlistStore";
 
 const navItems = [
   { name: "Dashboard", href: "/account", icon: LayoutDashboard },
   { name: "Orders", href: "/account/orders", icon: Package },
+  { name: "Wishlist", href: "/account/wishlist", icon: Heart },
   { name: "Addresses", href: "/account/addresses", icon: MapPin },
   { name: "Account details", href: "/account/details", icon: UserCircle },
 ];
@@ -21,39 +31,59 @@ export default function AccountLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  
-  const logout = useAuthStore((state) => state.logout); // Zustand Auth Action
-  // const clearWishlist = useWishlistStore((state) => state.clearWishlist); // Zustand Wishlist Action
 
-    const handleLogout = async () => {
+  const logout = useAuthStore((state) => state.logout);
+
+  const syncFromServer = useWishlistStore((state) => state.syncFromServer);
+  const clearWishlist = useWishlistStore((state) => state.clearWishlist);
+
+  useEffect(() => {
+    syncFromServer();
+  }, [syncFromServer]);
+
+  const handleLogout = async () => {
     try {
-      // 1. Clear the server-side cookie
-      await fetch("/api/logout", { method: "POST" });
+      // 1. Clear server-side customer_token cookie
+      await fetch("/api/logout", {
+        method: "POST",
+        credentials: "include",
+      });
 
-      // 2. Clear LocalStorage (for the frontend token)
+      // 2. Clear old frontend/local tokens if any
       localStorage.removeItem("woo-token");
-      
-      // 3. Clear Zustand Global Store
-      logout(); 
+      localStorage.removeItem("customer_token");
 
-      // 4. Redirect and force refresh to trigger Middleware redirect
-      router.push("/login");
+      // 3. Clear wishlist only from local UI/Zustand
+      // This does NOT delete wishlist from WordPress DB.
+      clearWishlist();
+
+      // 4. Clear auth Zustand store
+      logout();
+
+      // 5. Redirect to login
+      router.replace("/login");
       router.refresh();
     } catch (error) {
-      console.error("Logout failed", error);
+      console.error("Logout failed:", error);
     }
   };
-
 
   return (
     <div className="container mx-auto max-w-7xl py-12 px-4 md:px-6">
       <div className="flex flex-col md:flex-row gap-12">
         <aside className="w-full md:w-64 border-r pr-8">
-          <h2 className="text-xl font-bold mb-6 italic uppercase tracking-tight">My Account</h2>
+          <h2 className="text-xl font-bold mb-6 italic uppercase tracking-tight">
+            My Account
+          </h2>
+
           <nav className="flex flex-col space-y-1">
             {navItems.map((item) => {
-              const isActive = pathname === item.href;
               const Icon = item.icon;
+
+              const isActive =
+                item.href === "/account"
+                  ? pathname === "/account"
+                  : pathname.startsWith(item.href);
 
               return (
                 <Link
@@ -61,8 +91,8 @@ export default function AccountLayout({
                   href={item.href}
                   className={cn(
                     "flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-md transition-all",
-                    isActive 
-                      ? "bg-black text-white shadow-md" 
+                    isActive
+                      ? "bg-black text-white shadow-md"
                       : "text-muted-foreground hover:bg-zinc-100 hover:text-black"
                   )}
                 >
@@ -71,8 +101,9 @@ export default function AccountLayout({
                 </Link>
               );
             })}
-            
+
             <button
+              type="button"
               onClick={handleLogout}
               className="flex items-center gap-3 mt-4 px-4 py-2.5 text-sm font-medium text-red-600 text-left hover:bg-red-50 rounded-md transition-colors"
             >
@@ -82,9 +113,7 @@ export default function AccountLayout({
           </nav>
         </aside>
 
-        <main className="flex-1 min-w-0">
-          {children}
-        </main>
+        <main className="flex-1 min-w-0">{children}</main>
       </div>
     </div>
   );

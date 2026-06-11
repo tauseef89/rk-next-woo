@@ -1,122 +1,180 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  X,
+  Gift,
+  Mail,
+  Lock,
+  User,
+  Loader2,
+  Sparkles,
+  LogIn,
+} from "lucide-react";
+
 import { useAuthStore } from "@/store/useAuthStore";
 
-export default function SignupPopup() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [formData, setFormData] = useState({ username: "", email: "", password: "" });
+interface SignupPopupProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export default function SignupPopup({
+  open,
+  onOpenChange,
+}: SignupPopupProps) {
+  const [formData, setFormData] = useState({
+    username: "",
+    email: "",
+    password: "",
+  });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  
+
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
 
-  useEffect(() => {
-    const hasSeen = localStorage.getItem("hideSignupPopup");
-    const token = localStorage.getItem("woo-token");
-    // Only show if not logged in and hasn't dismissed popup
-    if (!hasSeen && !token) {
-      const timer = setTimeout(() => setIsOpen(true), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
   const closePopup = () => {
-    setIsOpen(false);
-    localStorage.setItem("hideSignupPopup", "true");
+    onOpenChange(false);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+
     setLoading(true);
     setError("");
 
     try {
       const res = await fetch("/api/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.username,
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+          phone: "",
+        }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
-      if (res.ok) {
-        if (data.token) {
+      if (res.ok && data?.success !== false) {
+        if (data?.token && typeof window !== "undefined") {
           localStorage.setItem("woo-token", data.token);
-          login({
-            id: data.user_id || "",
-            email: data.user_email || formData.email,
-            name: data.user_display_name || formData.username,
-          });
         }
+
+        login({
+          id: String(data?.user?.id || data?.user_id || ""),
+          email: data?.user?.email || data?.user_email || formData.email,
+          name:
+            data?.user?.name ||
+            data?.user_display_name ||
+            formData.username,
+        });
+
         closePopup();
+
         router.refresh();
-        // Redirect to a "Welcome" or Shop page
-        router.push("/shop?welcome=true"); 
-      } else {
-        const cleanMessage = data.message?.replace(/<[^>]*>?/gm, "") || "Registration failed.";
-        setError(cleanMessage);
+        router.push("/shop?welcome=true");
+        return;
       }
+
+      const cleanMessage =
+        data?.message?.replace(/<[^>]*>?/gm, "") ||
+        "Registration failed. Please try again.";
+
+      setError(cleanMessage);
     } catch (err) {
+      console.error("Signup popup register error:", err);
       setError("An error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (!isOpen) return null;
+  if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden">
-        {/* Discount Header */}
-        <div className="bg-yellow-400 py-3 text-center text-sm font-bold uppercase tracking-tight text-black">
-          🎁 Claim Your 1,000 Signup Discount
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+      <div className="relative w-full max-w-md overflow-hidden rounded-[2rem] bg-white shadow-2xl">
+        <button
+          type="button"
+          onClick={closePopup}
+          className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-zinc-500 shadow-sm transition hover:bg-black hover:text-white"
+          aria-label="Close signup popup"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <div className="relative overflow-hidden bg-black px-8 py-8 text-center text-white">
+          <div className="absolute inset-0 opacity-25 bg-[radial-gradient(circle_at_top,_#facc15,_transparent_40%)]" />
+
+          <div className="relative z-10 space-y-4">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-yellow-400 text-black shadow-xl shadow-yellow-400/20">
+              <Gift className="h-8 w-8" />
+            </div>
+
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-yellow-300">
+                New Customer Offer
+              </p>
+
+              <h2 className="mt-2 text-3xl font-black tracking-tight">
+                Claim ₹1,000 Discount
+              </h2>
+
+              <p className="mt-2 text-sm font-medium text-white/60">
+                Create your account and unlock your first order benefit.
+              </p>
+            </div>
+          </div>
         </div>
 
-        <button onClick={closePopup} className="absolute right-4 top-12 text-gray-400 hover:text-black text-xl">✕</button>
-
-        <div className="p-8">
-          <h2 className="text-2xl font-bold text-center mb-2">Join & Save</h2>
-          <p className="text-center text-gray-600 mb-6 text-sm">
-            Create an account to unlock your 1,000 discount on your first order.
-          </p>
-
+        <div className="p-7">
           <form onSubmit={handleRegister} className="space-y-4">
-            {error && <p className="p-3 bg-red-100 text-red-700 rounded text-xs">{error}</p>}
-            
-            <input
+            {error && (
+              <div className="rounded-2xl border border-red-100 bg-red-50 p-3 text-xs font-semibold text-red-700">
+                {error}
+              </div>
+            )}
+
+            <InputWithIcon
+              icon={<User className="h-4 w-4" />}
               name="username"
               type="text"
-              required
-              placeholder="Username"
-              className="w-full border p-3 rounded-lg focus:ring-2 focus:ring-black outline-none transition-all"
+              placeholder="Full Name"
               value={formData.username}
               onChange={handleChange}
             />
 
-            <input
+            <InputWithIcon
+              icon={<Mail className="h-4 w-4" />}
               name="email"
               type="email"
-              required
               placeholder="Email Address"
-              className="w-full border p-3 rounded-lg focus:ring-2 focus:ring-black outline-none transition-all"
               value={formData.email}
               onChange={handleChange}
             />
 
-            <input
+            <InputWithIcon
+              icon={<Lock className="h-4 w-4" />}
               name="password"
               type="password"
-              required
-              placeholder="Password"
-              className="w-full border p-3 rounded-lg focus:ring-2 focus:ring-black outline-none transition-all"
+              placeholder="Create Password"
               value={formData.password}
               onChange={handleChange}
             />
@@ -124,17 +182,78 @@ export default function SignupPopup() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-black text-white py-4 rounded-xl font-bold hover:bg-gray-800 disabled:bg-gray-400 transition-all shadow-lg"
+              className="flex w-full items-center justify-center rounded-2xl bg-black py-4 text-sm font-black uppercase tracking-widest text-white shadow-xl transition hover:bg-zinc-800 disabled:bg-zinc-400"
             >
-              {loading ? "Creating Account..." : "Claim My 1,000 Discount"}
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating Account...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Claim My ₹1,000 Discount
+                </>
+              )}
             </button>
           </form>
 
-          <button onClick={closePopup} className="mt-4 block w-full text-center text-xs text-gray-400 hover:underline">
-            Maybe later, I'll pay full price
+          <div className="mt-5 flex items-center justify-center gap-2 text-xs font-medium text-zinc-500">
+            <span>Already have an account?</span>
+
+            <Link
+              href="/login"
+              onClick={closePopup}
+              className="inline-flex items-center gap-1 font-bold text-black hover:underline"
+            >
+              <LogIn className="h-3 w-3" />
+              Login
+            </Link>
+          </div>
+
+          <button
+            type="button"
+            onClick={closePopup}
+            className="mt-4 block w-full text-center text-xs font-medium text-zinc-400 hover:text-black hover:underline"
+          >
+            Maybe later, I’ll continue shopping
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function InputWithIcon({
+  icon,
+  name,
+  type,
+  placeholder,
+  value,
+  onChange,
+}: {
+  icon: React.ReactNode;
+  name: string;
+  type: string;
+  placeholder: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div className="relative">
+      <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400">
+        {icon}
+      </div>
+
+      <input
+        name={name}
+        type={type}
+        required
+        placeholder={placeholder}
+        className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 py-4 pl-11 pr-4 text-sm font-medium outline-none transition-all focus:border-black focus:bg-white focus:ring-2 focus:ring-black/10"
+        value={value}
+        onChange={onChange}
+      />
     </div>
   );
 }

@@ -40,7 +40,7 @@ export default function MegaMenu() {
               <li key={link.slug}>
                 <NavigationMenuLink asChild>
                   <Link
-                    href={`/shop/category/${link.slug}`}
+                    href={`/shop/tag/${link.slug}`}
                     className="text-[12px] text-gray-500 hover:text-blue-700 transition-all block"
                   >
                     {link.name}

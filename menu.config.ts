@@ -46,14 +46,15 @@ export const MEGA_MENU_CONFIG = [
           { name: "LG", slug: "lg-window-ac" },
           { name: "Voltas", slug: "voltas-window-ac" },
           { name: "Godrej", slug: "godrej-window-ac" },
-          { name: "O'General", slug: "ogeneral-window-ac" },
+          { name: "O'General", slug: "o-general-window-ac" },
         ],
       },
       {
         title: "Air Coolers",
         links: [
-          { name: "Symphony", slug: "symphony-coolers" },
-          { name: "Crompton", slug: "crompton-coolers" },
+          { name: "Symphony", slug: "symphony-cooler" },
+          { name: "Godrej", slug: "godrej-cooler" },
+          { name: "Usha", slug: "usha-cooler" },
         ],
       },
       {
@@ -76,7 +77,7 @@ export const MEGA_MENU_CONFIG = [
   },
   {
     name: "TV & Audio",
-    slug: "tv-audio",
+    slug: "tv-entertainment",
     image: "/images/mega-menu/TV-Menu-Banner.png",
     columns: [
       {
@@ -96,23 +97,24 @@ export const MEGA_MENU_CONFIG = [
           { name: "Soundbar", slug: "soundbars" },
           { name: "Speakers", slug: "speakers" },
           { name: "Home Theatre", slug: "home-theatre" },
-          { name: "Karaoke", slug: "karaoke" },
         ],
       },
       {
         title: "Brand",
         links: [
           { name: "Samsung", slug: "samsung-tv" },
+          { name: "Lloyd", slug: "lloyd-tv" },
+          { name: "Haier", slug: "haier-tv" },
           { name: "Hisense", slug: "hisense-tv" },
           { name: "LG", slug: "lg-tv" },
-          { name: "JBL", slug: "jbl-audio" },
+          { name: "DH Discovery", slug: "dh-discovery-audio" },
         ],
       },
     ],
   },
   {
     name: "Large Appliances",
-    slug: "large-appliances",
+    slug: "washing-machine",
     image: "/images/mega-menu/Larg-Apl-Menu-Banner.png",
     columns: [
       {
@@ -129,7 +131,6 @@ export const MEGA_MENU_CONFIG = [
           { name: "Front Load", slug: "front-load-washers" },
           { name: "Top Load", slug: "top-load-washers" },
           { name: "Semi Automatic", slug: "semi-automatic-washers" },
-          { name: "Dryer", slug: "dryers" },
         ],
       },
       {
@@ -152,10 +153,12 @@ export const MEGA_MENU_CONFIG = [
       {
         title: "Cooking",
         links: [
-          { name: "LG Microwave", slug: "lg-microwaves" },
+          { name: "Microwave", slug: "microwaves" },
           { name: "Oven Toaster Griller", slug: "otg" },
           { name: "Induction", slug: "induction-cooktops" },
           { name: "Gas Stove", slug: "gas-stoves" },
+          { name: "Food Processor", slug: "food-processors" },
+          { name: "Dish Washer", slug: "dishwashers" },
         ],
       },
       {
@@ -175,15 +178,13 @@ export const MEGA_MENU_CONFIG = [
           { name: "Philips", slug: "philips-kitchen" },
           { name: "Lloyd", slug: "lloyd-kitchen" },
           { name: "LG", slug: "lg-kitchen" },
-          { name: "Food Processor", slug: "food-processors" },
-          { name: "Dish Washer", slug: "dishwashers" },
         ],
       },
     ],
   },
   {
     name: "Home Essentials",
-    slug: "home-essentials",
+    slug: "home-appliances",
     image: "/images/mega-menu/Home-utti-Menu-Banner.png",
     columns: [
       {
@@ -226,7 +227,7 @@ export const MEGA_MENU_CONFIG = [
   },
   {
     name: "Mobiles & Accessories",
-    slug: "mobiles-accessories",
+    slug: "mobiles",
     image: "/images/mega-menu/Mobile-Menu-Banner.png",
     columns: [
       {
