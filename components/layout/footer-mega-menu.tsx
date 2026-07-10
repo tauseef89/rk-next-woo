@@ -26,7 +26,7 @@ export default function FooterMegaMenu() {
                     className="flex shrink-0 items-center"
                   >
                     <Link
-                      href={`/shop/category/${link.slug}`}
+                      href={`/shop/tag/${link.slug}`}
                       className="whitespace-nowrap text-[13px] font-normal text-gray-400 transition-colors hover:text-white"
                     >
                       {link.name}

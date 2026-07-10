@@ -2,13 +2,76 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingCart, Plus, Minus, Trash2, ArrowLeft } from "lucide-react";
+import {
+  ShoppingCart,
+  Plus,
+  Minus,
+  Trash2,
+  ArrowLeft,
+} from "lucide-react";
 
 import { useCart } from "@/components/shop/cart-provider";
 import { formatPrice } from "@/lib/woocommerce";
 import { Section, Container } from "@/components/craft";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+
+function getCartLineKey(item: any) {
+  const exchangeKey =
+    item.exchangeApplied && item.exchange
+      ? [
+          "with-exchange",
+          item.exchange.category,
+          item.exchange.brand,
+          item.exchange.type,
+          item.exchange.capacity,
+          item.exchange.age,
+          item.exchange.pincode,
+          item.exchange.exchangeValue,
+          item.exchange.finalPrice,
+        ].join("-")
+      : "without-exchange";
+
+  const warrantyKey =
+    item.extendedWarrantyApplied && item.extendedWarranty
+      ? [
+          "with-warranty",
+          item.extendedWarranty.category || "unknown-category",
+          item.extendedWarranty.planYears ||
+            item.extendedWarranty.title ||
+            "unknown-plan",
+          item.extendedWarranty.price,
+        ].join("-")
+      : "without-warranty";
+
+  return `${item.productId}-${
+    item.variationId || "base"
+  }-${exchangeKey}-${warrantyKey}`;
+}
+
+function parseCartPrice(price: string | number | undefined | null) {
+  if (!price) return 0;
+
+  if (typeof price === "number") {
+    return price;
+  }
+
+  return Number(price.replace(/[^0-9.]/g, "")) || 0;
+}
+
+function getWarrantyPlanLabel(warranty: any) {
+  if (!warranty) {
+    return "Extended Warranty";
+  }
+
+  if (warranty.planYears) {
+    return `${warranty.planYears} ${
+      warranty.planYears === 1 ? "Year" : "Years"
+    } Extended Warranty`;
+  }
+
+  return warranty.title || "Extended Warranty";
+}
 
 export default function CartPage() {
   const {
@@ -37,14 +100,17 @@ export default function CartPage() {
     return (
       <Section>
         <Container>
-          <div className="flex flex-col items-center justify-center py-12 space-y-6">
+          <div className="flex flex-col items-center justify-center space-y-6 py-12">
             <ShoppingCart className="h-24 w-24 text-muted-foreground/30" />
-            <div className="text-center space-y-2">
+
+            <div className="space-y-2 text-center">
               <h1 className="text-2xl font-bold">Your cart is empty</h1>
+
               <p className="text-muted-foreground">
                 Looks like you haven&apos;t added anything to your cart yet.
               </p>
             </div>
+
             <Button asChild size="lg">
               <Link href="/shop">
                 <ArrowLeft className="mr-2 h-4 w-4" />
@@ -63,113 +129,173 @@ export default function CartPage() {
         <div className="space-y-8">
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold">Shopping Cart</h1>
+
             <Button variant="ghost" onClick={clearCart}>
               Clear Cart
             </Button>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-8">
+          <div className="grid gap-8 lg:grid-cols-3">
             {/* Cart Items */}
-            <div className="lg:col-span-2 space-y-4">
-              {cart.items.map((item) => (
-                <div
-                  key={`${item.productId}-${item.variationId || ""}`}
-                  className="flex gap-4 p-4 border rounded-lg"
-                >
-                  {/* Image */}
-                  <div className="relative h-24 w-24 flex-shrink-0 rounded-md overflow-hidden bg-muted">
-                    {item.image ? (
-                      <Image
-                        src={item.image}
-                        alt={item.name}
-                        fill
-                        className="object-cover"
-                        sizes="96px"
-                      />
-                    ) : (
-                      <div className="flex items-center justify-center w-full h-full text-muted-foreground text-xs">
-                        No image
-                      </div>
-                    )}
-                  </div>
+            <div className="space-y-4 lg:col-span-2">
+              {cart.items.map((item: any) => {
+                const cartLineKey = getCartLineKey(item);
+                const itemPrice = parseCartPrice(item.price);
+                const lineTotal = itemPrice * item.quantity;
 
-                  {/* Details */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium">{item.name}</h3>
+                return (
+                  <div
+                    key={cartLineKey}
+                    className="flex gap-4 rounded-lg border p-4"
+                  >
+                    {/* Image */}
+                    <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-md bg-muted">
+                      {item.image ? (
+                        <Image
+                          src={item.image}
+                          alt={item.name}
+                          fill
+                          className="object-cover"
+                          sizes="96px"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+                          No image
+                        </div>
+                      )}
+                    </div>
 
-                    {item.attributes && item.attributes.length > 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        {item.attributes.map((a) => a.option).join(", ")}
+                    {/* Details */}
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-medium">{item.name}</h3>
+
+                      {item.attributes && item.attributes.length > 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          {item.attributes
+                            .map((attribute: any) => attribute.option)
+                            .join(", ")}
+                        </p>
+                      )}
+
+                      {/* Exchange */}
+                      {item.exchangeApplied && item.exchange && (
+                        <div className="mt-2 rounded-md bg-green-50 px-2 py-1 text-xs text-green-700">
+                          <p className="font-semibold">With Exchange</p>
+
+                          <p>
+                            {item.exchange.brand} {item.exchange.type},{" "}
+                            {item.exchange.capacity}
+                          </p>
+
+                          <p>
+                            Exchange Value:{" "}
+                            {formatPrice(String(item.exchange.exchangeValue))}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Warranty */}
+                      {item.extendedWarrantyApplied &&
+                        item.extendedWarranty && (
+                          <div className="mt-2 rounded-md bg-blue-50 px-2 py-1 text-xs text-blue-700">
+                            <p className="font-semibold">
+                              {getWarrantyPlanLabel(item.extendedWarranty)}
+                            </p>
+
+                            <p>
+                              Warranty Charge:{" "}
+                              {formatPrice(
+                                String(item.extendedWarranty.price)
+                              )}
+                            </p>
+                          </div>
+                        )}
+
+                      <p className="mt-2 font-medium">
+                        {formatPrice(String(itemPrice))}
                       </p>
-                    )}
 
-                    <p className="font-medium mt-1">
-                      {formatPrice(item.price)}
-                    </p>
+                      {item.exchangeApplied && item.originalPrice && (
+                        <p className="text-xs text-muted-foreground">
+                          Original Price:{" "}
+                          <span className="line-through">
+                            {formatPrice(String(item.originalPrice))}
+                          </span>
+                        </p>
+                      )}
 
-                    {/* Quantity Controls */}
-                    <div className="flex items-center gap-4 mt-3">
-                      <div className="flex items-center border rounded-md">
+                      {/* Quantity Controls */}
+                      <div className="mt-3 flex items-center gap-4">
+                        <div className="flex items-center rounded-md border">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() =>
+                              updateQuantity(
+                                item.productId,
+                                item.quantity - 1,
+                                item.variationId,
+                                cartLineKey
+                              )
+                            }
+                          >
+                            <Minus className="h-4 w-4" />
+                          </Button>
+
+                          <span className="w-10 text-center">
+                            {item.quantity}
+                          </span>
+
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() =>
+                              updateQuantity(
+                                item.productId,
+                                item.quantity + 1,
+                                item.variationId,
+                                cartLineKey
+                              )
+                            }
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+
                         <Button
                           variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
+                          size="sm"
+                          className="text-destructive"
                           onClick={() =>
-                            updateQuantity(
+                            removeItem(
                               item.productId,
-                              item.quantity - 1,
-                              item.variationId
+                              item.variationId,
+                              cartLineKey
                             )
                           }
                         >
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                        <span className="w-10 text-center">{item.quantity}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() =>
-                            updateQuantity(
-                              item.productId,
-                              item.quantity + 1,
-                              item.variationId
-                            )
-                          }
-                        >
-                          <Plus className="h-4 w-4" />
+                          <Trash2 className="mr-1 h-4 w-4" />
+                          Remove
                         </Button>
                       </div>
+                    </div>
 
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive"
-                        onClick={() =>
-                          removeItem(item.productId, item.variationId)
-                        }
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Remove
-                      </Button>
+                    {/* Line Total */}
+                    <div className="text-right">
+                      <p className="font-bold">
+                        {formatPrice(String(lineTotal))}
+                      </p>
                     </div>
                   </div>
-
-                  {/* Line Total */}
-                  <div className="text-right">
-                    <p className="font-bold">
-                      {formatPrice(
-                        (parseFloat(item.price) * item.quantity).toString()
-                      )}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Order Summary */}
             <div className="lg:col-span-1">
-              <div className="border rounded-lg p-6 space-y-4 sticky top-4">
+              <div className="sticky top-4 space-y-4 rounded-lg border p-6">
                 <h2 className="text-xl font-bold">Order Summary</h2>
 
                 <div className="space-y-2">
@@ -177,6 +303,7 @@ export default function CartPage() {
                     <span className="text-muted-foreground">
                       Subtotal ({cart.totals.itemCount} items)
                     </span>
+
                     <span>{formatPrice(cart.totals.subtotal)}</span>
                   </div>
 

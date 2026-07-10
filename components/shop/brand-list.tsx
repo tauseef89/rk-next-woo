@@ -1,20 +1,25 @@
 import Image from "next/image";
 import Link from "next/link";
-import { getBrands } from "@/lib/woocommerce"; 
+import { getBrands } from "@/lib/woocommerce";
+
+// Add IDs of brands you want to hide here.
+// Example: /shop?product_brand=67
+const HIDDEN_BRAND_IDS: string[] = ["68","66","67","65", "73", "854", "855","1383","1407","930","830","1438","779","69"];
 
 export default async function BrandList() {
   const allBrands = await getBrands();
 
-  // FIXED: Filter out brands that do not have a valid image source available
-  const brandsWithImages = (allBrands || []).filter(
-    (brand) => brand.image && brand.image.src
-  );
+  // Keep all brands except the hidden ones.
+  // Brand image is now optional.
+  const visibleBrands = (allBrands || []).filter((brand) => {
+    return !HIDDEN_BRAND_IDS.includes(String(brand.id));
+  });
 
-  if (brandsWithImages.length === 0) {
+  if (visibleBrands.length === 0) {
     return (
-      <div className="py-10 text-center border-y bg-slate-50">
-        <p className="text-sm text-muted-foreground font-medium uppercase tracking-widest">
-          No brands with images found in 'product_brand' taxonomy
+      <div className="border-y bg-slate-50 py-10 text-center">
+        <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
+          No brands found in product_brand taxonomy
         </p>
       </div>
     );
@@ -22,26 +27,36 @@ export default async function BrandList() {
 
   return (
     <>
-      <h3 className="text-3xl font-bold text-blue-950 mb-8 text-center">
+      <h3 className="mb-8 text-center text-3xl font-bold text-blue-950">
         Our Top <span className="text-red-700">Brands</span>
       </h3>
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        {brandsWithImages.map((brand) => (
-          <Link
-            key={brand.id}
-            href={`/shop?product_brand=${brand.id}`}
-            className="group border rounded-xl p-6 flex items-center justify-center hover:shadow-md transition-all bg-white min-h-[100px]"
-          >
-            {/* Safe rendering since we pre-filtered empty elements above */}
-            <Image
-              src={brand.image.src}
-              alt={brand.name}
-              width={120}
-              height={70}
-              className="object-contain transition-all max-h-12.5 w-auto"
-            />
-          </Link>
-        ))}
+
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
+        {visibleBrands.map((brand) => {
+          const hasImage = Boolean(brand.image?.src);
+
+          return (
+            <Link
+              key={brand.id}
+              href={`/shop?product_brand=${brand.id}`}
+              className="group flex min-h-[100px] items-center justify-center rounded-xl border bg-white p-6 text-center transition-all hover:shadow-md"
+            >
+              {hasImage ? (
+                <Image
+                  src={brand.image.src}
+                  alt={brand.name}
+                  width={120}
+                  height={70}
+                  className="max-h-12.5 w-auto object-contain transition-all"
+                />
+              ) : (
+                <span className="text-sm font-semibold text-blue-950 transition-colors group-hover:text-red-700">
+                  {brand.name}
+                </span>
+              )}
+            </Link>
+          );
+        })}
       </div>
     </>
   );

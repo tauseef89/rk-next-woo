@@ -17,6 +17,7 @@ import {
   User,
   ReceiptText,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import Cookies from "js-cookie";
 
@@ -46,7 +47,11 @@ interface CheckoutFormData {
 
 function parsePrice(value: string | number | undefined | null) {
   if (!value) return 0;
-  if (typeof value === "number") return value;
+
+  if (typeof value === "number") {
+    return value;
+  }
+
   return Number(value.replace(/[^0-9.-]/g, "")) || 0;
 }
 
@@ -70,8 +75,10 @@ function getCartLineKey(item: any) {
     item.extendedWarrantyApplied && item.extendedWarranty
       ? [
           "with-warranty",
-          item.extendedWarranty.title,
-          item.extendedWarranty.percentage,
+          item.extendedWarranty.category || "unknown-category",
+          item.extendedWarranty.planYears ||
+            item.extendedWarranty.title ||
+            "unknown-plan",
           item.extendedWarranty.price,
         ].join("-")
       : "without-warranty";
@@ -81,8 +88,22 @@ function getCartLineKey(item: any) {
   }-${exchangeKey}-${warrantyKey}`;
 }
 
+function getWarrantyPlanLabel(warranty: any) {
+  if (!warranty) {
+    return "Extended Warranty";
+  }
+
+  if (warranty.planYears) {
+    return `${warranty.planYears} ${
+      warranty.planYears === 1 ? "Year" : "Years"
+    } Extended Warranty`;
+  }
+
+  return warranty.title || "Extended Warranty";
+}
+
 export default function CheckoutPage() {
-  const { cart, isLoading } = useCart();
+  const { cart, isLoading, removeItem } = useCart();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -116,65 +137,89 @@ export default function CheckoutPage() {
   });
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const { name, value } = event.target;
+
+    setFormData((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+  };
+
+  const handleRemoveCartItem = (item: any) => {
+    removeItem(item.productId, item.variationId, getCartLineKey(item));
+    setError(null);
   };
 
   const handleApplyCoupon = async () => {
-    if (!couponInput) return;
+    if (!couponInput.trim()) return;
 
     setIsValidating(true);
     setError(null);
 
     try {
-      const res = await fetch(`/api/coupon?code=${couponInput.toLowerCase()}`);
-      const data = await res.json();
+      const response = await fetch(
+        `/api/coupon?code=${couponInput.trim().toLowerCase()}`
+      );
 
-      if (!res.ok) throw new Error(data.message || "Invalid coupon");
+      const data = await response.json();
 
-      if (appliedCoupons.some((c) => c.code === data.code.toUpperCase())) {
+      if (!response.ok) {
+        throw new Error(data.message || "Invalid coupon");
+      }
+
+      const couponCode = data.code.toUpperCase();
+
+      if (appliedCoupons.some((coupon) => coupon.code === couponCode)) {
         throw new Error("Coupon already applied");
       }
 
       const newCoupon = {
-        code: data.code.toUpperCase(),
+        code: couponCode,
         amount: parseFloat(data.amount),
       };
 
-      setDiscountValue((prev) => prev + newCoupon.amount);
-      setAppliedCoupons((prev) => [...prev, newCoupon]);
+      setDiscountValue((previous) => previous + newCoupon.amount);
+      setAppliedCoupons((previous) => [...previous, newCoupon]);
       setCouponInput("");
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Unable to apply coupon");
     } finally {
       setIsValidating(false);
     }
   };
 
   const removeCoupon = (code: string) => {
-    const coupon = appliedCoupons.find((c) => c.code === code);
+    const coupon = appliedCoupons.find((item) => item.code === code);
 
-    if (coupon) {
-      setDiscountValue((prev) => prev - coupon.amount);
-      setAppliedCoupons(appliedCoupons.filter((c) => c.code !== code));
-    }
+    if (!coupon) return;
+
+    setDiscountValue((previous) => previous - coupon.amount);
+    setAppliedCoupons((previous) =>
+      previous.filter((item) => item.code !== code)
+    );
   };
 
   useEffect(() => {
     const token = Cookies.get("woo-token");
 
-    if (token) {
-      fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/wp/v2/users/me`, {
-        headers: { Authorization: `Bearer ${token}` },
+    if (!token) return;
+
+    fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/wp/v2/users/me`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.id) {
+          setUserId(data.id);
+        }
       })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.id) setUserId(data.id);
-        })
-        .catch((err) => console.error("Error fetching user ID:", err));
-    }
+      .catch((err) => {
+        console.error("Error fetching user ID:", err);
+      });
   }, []);
 
   useEffect(() => {
@@ -182,14 +227,14 @@ export default function CheckoutPage() {
       try {
         setIsRewardLoading(true);
 
-        const res = await fetch("/api/customer/points", {
+        const response = await fetch("/api/customer/points", {
           method: "GET",
           cache: "no-store",
         });
 
-        const data = await res.json();
+        const data = await response.json();
 
-        if (res.ok && data.success) {
+        if (response.ok && data.success) {
           setRewards(data.points || null);
         }
       } catch (err) {
@@ -203,8 +248,8 @@ export default function CheckoutPage() {
   }, []);
 
   const subtotal =
-    cart?.items?.reduce((acc: number, item: any) => {
-      return acc + parsePrice(item.price) * item.quantity;
+    cart.items.reduce((total: number, item: any) => {
+      return total + parsePrice(item.price) * item.quantity;
     }, 0) || 0;
 
   const pointValue = Number(rewards?.point_value || 1);
@@ -275,26 +320,20 @@ export default function CheckoutPage() {
   const checkoutItems = cart.items.map((item: any) => {
     const adjustedUnitPrice = parsePrice(item.price);
     const originalUnitPrice = parsePrice(item.originalPrice || item.price);
-    const lineTotal = adjustedUnitPrice * item.quantity;
 
     return {
       cart_line_key: getCartLineKey(item),
-
       product_id: item.productId,
       variation_id: item.variationId || undefined,
       quantity: item.quantity,
-
       name: item.name,
       image: item.image,
       attributes: item.attributes || [],
-
       original_price: originalUnitPrice,
       adjusted_price: adjustedUnitPrice,
-      line_total: lineTotal,
-
+      line_total: adjustedUnitPrice * item.quantity,
       exchange_applied: Boolean(item.exchangeApplied),
       exchange: item.exchangeApplied && item.exchange ? item.exchange : null,
-
       extended_warranty_applied: Boolean(item.extendedWarrantyApplied),
       extended_warranty:
         item.extendedWarrantyApplied && item.extendedWarranty
@@ -303,8 +342,8 @@ export default function CheckoutPage() {
     };
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
 
     setIsSubmitting(true);
     setError(null);
@@ -313,7 +352,7 @@ export default function CheckoutPage() {
 
     if (sanitizedPhone.length < 10 || sanitizedPhone.length > 12) {
       setError(
-        "Please provide a valid phone number (10-12 digits) required by payment processor."
+        "Please provide a valid phone number with 10 to 12 digits."
       );
       setIsSubmitting(false);
       return;
@@ -328,7 +367,6 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           customer_id: userId,
           total_amount: totalAmount,
-
           cart_items: checkoutItems,
 
           line_items: cart.items.map((item: any) => ({
@@ -372,8 +410,8 @@ export default function CheckoutPage() {
             country: formData.country,
           },
 
-          coupon_lines: appliedCoupons.map((c) => ({
-            code: c.code,
+          coupon_lines: appliedCoupons.map((coupon) => ({
+            code: coupon.code,
           })),
 
           customer_note: formData.notes,
@@ -383,25 +421,25 @@ export default function CheckoutPage() {
       const contentType = response.headers.get("content-type") || "";
 
       if (!contentType.includes("application/json")) {
-        const rawHtml = await response.text();
-        console.error("NON JSON RESPONSE:", rawHtml);
-        throw new Error(`Server returned non JSON response (${response.status})`);
+        const rawResponse = await response.text();
+
+        console.error("NON JSON RESPONSE:", rawResponse);
+
+        throw new Error(
+          `Server returned a non-JSON response (${response.status})`
+        );
       }
 
       const data = await response.json();
-
-      console.log("CHECKOUT RESPONSE:", data);
 
       if (!response.ok || !data.success) {
         throw new Error(data.error || "Checkout failed");
       }
 
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem("pending_order_id", data.order.id.toString());
+      sessionStorage.setItem("pending_order_id", data.order.id.toString());
 
-        if (data.pine_labs?.order_id) {
-          sessionStorage.setItem("pine_order_id", data.pine_labs.order_id);
-        }
+      if (data.pine_labs?.order_id) {
+        sessionStorage.setItem("pine_order_id", data.pine_labs.order_id);
       }
 
       if (data?.pine_labs?.payment_url) {
@@ -409,13 +447,14 @@ export default function CheckoutPage() {
         return;
       }
 
-      throw new Error("Pine Labs checkout session configuration URL missing");
+      throw new Error("Pine Labs payment URL is missing.");
     } catch (err) {
       console.error(err);
+
       setError(
         err instanceof Error
           ? err.message
-          : "Something went wrong during processing"
+          : "Something went wrong during checkout."
       );
     } finally {
       setIsSubmitting(false);
@@ -426,8 +465,8 @@ export default function CheckoutPage() {
     return (
       <Section>
         <Container>
-          <div className="min-h-[60vh] flex items-center justify-center">
-            <div className="text-center space-y-4">
+          <div className="flex min-h-[60vh] items-center justify-center">
+            <div className="space-y-4 text-center">
               <Loader2 className="mx-auto h-10 w-10 animate-spin" />
               <p className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">
                 Preparing Checkout
@@ -443,15 +482,15 @@ export default function CheckoutPage() {
     return (
       <Section>
         <Container>
-          <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-6 text-center">
-            <div className="h-20 w-20 rounded-full bg-zinc-100 flex items-center justify-center">
+          <div className="flex min-h-[60vh] flex-col items-center justify-center space-y-6 text-center">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-zinc-100">
               <ShoppingBag className="h-9 w-9 text-zinc-400" />
             </div>
 
             <div>
               <h1 className="text-2xl font-black">Your cart is empty</h1>
               <p className="mt-2 text-muted-foreground">
-                Add some items to your cart before checking out.
+                Add products to your cart before checking out.
               </p>
             </div>
 
@@ -472,7 +511,6 @@ export default function CheckoutPage() {
       <Section>
         <Container className="max-w-7xl">
           <div className="space-y-8">
-            {/* Header */}
             <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
               <div className="space-y-3">
                 <Button
@@ -492,7 +530,7 @@ export default function CheckoutPage() {
                     Secure Checkout
                   </p>
 
-                  <h1 className="mt-2 text-4xl md:text-6xl font-black tracking-tight">
+                  <h1 className="mt-2 text-4xl font-black tracking-tight md:text-6xl">
                     Complete Your Order
                   </h1>
 
@@ -507,6 +545,7 @@ export default function CheckoutPage() {
                 <p className="text-[10px] font-black uppercase tracking-widest text-white/50">
                   Amount Payable
                 </p>
+
                 <p className="mt-1 text-3xl font-black">
                   {formatPrice(String(totalAmount))}
                 </p>
@@ -519,13 +558,16 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-8 items-start">
-              {/* Left Form */}
-              <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[1fr_440px]">
+              <form
+                id="checkout-form"
+                onSubmit={handleSubmit}
+                className="space-y-6"
+              >
                 {/* Contact */}
-                <section className="rounded-[2rem] border border-zinc-200 bg-white p-6 md:p-8 shadow-xl shadow-zinc-100">
+                <section className="rounded-[2rem] border border-zinc-200 bg-white p-6 shadow-xl shadow-zinc-100 md:p-8">
                   <div className="mb-6 flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-2xl bg-zinc-50 flex items-center justify-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-50">
                       <User className="h-5 w-5 text-zinc-600" />
                     </div>
 
@@ -533,11 +575,13 @@ export default function CheckoutPage() {
                       <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
                         Step 01
                       </p>
-                      <h2 className="text-xl font-black">Contact Information</h2>
+                      <h2 className="text-xl font-black">
+                        Contact Information
+                      </h2>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <FieldWrapper label="Email Address *">
                       <Input
                         id="email"
@@ -565,9 +609,9 @@ export default function CheckoutPage() {
                 </section>
 
                 {/* Billing */}
-                <section className="rounded-[2rem] border border-zinc-200 bg-white p-6 md:p-8 shadow-xl shadow-zinc-100">
+                <section className="rounded-[2rem] border border-zinc-200 bg-white p-6 shadow-xl shadow-zinc-100 md:p-8">
                   <div className="mb-6 flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-2xl bg-zinc-50 flex items-center justify-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-50">
                       <MapPin className="h-5 w-5 text-zinc-600" />
                     </div>
 
@@ -579,7 +623,7 @@ export default function CheckoutPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <FieldWrapper label="First Name *">
                       <Input
                         id="firstName"
@@ -619,7 +663,6 @@ export default function CheckoutPage() {
                         required
                         disabled
                         value={formData.country}
-                        onChange={handleInputChange}
                         className="h-12 rounded-xl"
                       />
                     </FieldWrapper>
@@ -687,9 +730,9 @@ export default function CheckoutPage() {
                 </section>
 
                 {/* Notes */}
-                <section className="rounded-[2rem] border border-zinc-200 bg-white p-6 md:p-8 shadow-xl shadow-zinc-100">
+                <section className="rounded-[2rem] border border-zinc-200 bg-white p-6 shadow-xl shadow-zinc-100 md:p-8">
                   <div className="mb-6 flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-2xl bg-zinc-50 flex items-center justify-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-50">
                       <ReceiptText className="h-5 w-5 text-zinc-600" />
                     </div>
 
@@ -716,9 +759,9 @@ export default function CheckoutPage() {
                 </section>
               </form>
 
-              {/* Right Summary */}
-              <aside className="lg:sticky lg:top-24 space-y-5">
-                <section className="rounded-[2rem] border border-zinc-200 bg-white shadow-xl shadow-zinc-100 overflow-hidden">
+              {/* Order Summary */}
+              <aside className="space-y-5 lg:sticky lg:top-24">
+                <section className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-xl shadow-zinc-100">
                   <div className="bg-black p-6 text-white">
                     <div className="flex items-center justify-between">
                       <div>
@@ -730,23 +773,23 @@ export default function CheckoutPage() {
                         </h2>
                       </div>
 
-                      <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
                         <ShoppingBag className="h-5 w-5" />
                       </div>
                     </div>
                   </div>
 
-                  <div className="max-h-[360px] overflow-y-auto divide-y divide-zinc-100">
+                  <div className="max-h-[360px] divide-y divide-zinc-100 overflow-y-auto">
                     {cart.items.map((item: any) => {
                       const cartLineKey = getCartLineKey(item);
-                      const itemPrice = parsePrice(item.price);
-                      const lineTotal = itemPrice * item.quantity;
+                      const lineTotal =
+                        parsePrice(item.price) * item.quantity;
 
                       return (
                         <div key={cartLineKey} className="p-5">
                           <div className="flex gap-4">
                             {item.image && (
-                              <div className="relative h-16 w-16 shrink-0 rounded-2xl border bg-zinc-50 overflow-hidden">
+                              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl border bg-zinc-50">
                                 <Image
                                   src={item.image}
                                   alt={item.name || "Product"}
@@ -758,9 +801,21 @@ export default function CheckoutPage() {
                             )}
 
                             <div className="min-w-0 flex-1">
-                              <p className="line-clamp-2 text-sm font-black">
-                                {item.name}
-                              </p>
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="line-clamp-2 text-sm font-black">
+                                  {item.name}
+                                </p>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveCartItem(item)}
+                                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-50 hover:text-red-700"
+                                  aria-label={`Remove ${item.name} from cart`}
+                                  title="Remove item"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
 
                               <div className="mt-2 flex items-center justify-between gap-3">
                                 <span className="rounded-full bg-zinc-100 px-3 py-1 text-[10px] font-black uppercase text-zinc-500">
@@ -780,7 +835,9 @@ export default function CheckoutPage() {
                                 tone="green"
                                 icon={<RefreshCcw className="h-3 w-3" />}
                                 title="Exchange Applied"
-                                text={`${item.exchange.brand} ${item.exchange.type} • ${formatPrice(
+                                text={`${item.exchange.brand} ${
+                                  item.exchange.type
+                                } • ${formatPrice(
                                   String(item.exchange.exchangeValue)
                                 )}`}
                               />
@@ -792,7 +849,9 @@ export default function CheckoutPage() {
                                   tone="blue"
                                   icon={<ShieldCheck className="h-3 w-3" />}
                                   title="Extended Warranty"
-                                  text={`${item.extendedWarranty.percentage}% • ${formatPrice(
+                                  text={`${getWarrantyPlanLabel(
+                                    item.extendedWarranty
+                                  )} • ${formatPrice(
                                     String(item.extendedWarranty.price)
                                   )}`}
                                 />
@@ -803,11 +862,12 @@ export default function CheckoutPage() {
                     })}
                   </div>
 
-                  <div className="p-5 space-y-4 border-t border-zinc-100">
+                  <div className="space-y-4 border-t border-zinc-100 p-5">
                     {/* Coupon */}
-                    <div className="rounded-2xl border border-zinc-100 bg-zinc-50 p-4 space-y-3">
+                    <div className="space-y-3 rounded-2xl border border-zinc-100 bg-zinc-50 p-4">
                       <div className="flex items-center gap-2">
                         <Ticket className="h-4 w-4 text-zinc-600" />
+
                         <Label
                           htmlFor="coupon"
                           className="text-xs font-black uppercase tracking-widest"
@@ -821,7 +881,9 @@ export default function CheckoutPage() {
                           id="coupon"
                           placeholder="Coupon Code"
                           value={couponInput}
-                          onChange={(e) => setCouponInput(e.target.value)}
+                          onChange={(event) =>
+                            setCouponInput(event.target.value)
+                          }
                           disabled={isValidating}
                           className="h-11 rounded-xl bg-white"
                         />
@@ -830,7 +892,7 @@ export default function CheckoutPage() {
                           type="button"
                           variant="outline"
                           onClick={handleApplyCoupon}
-                          disabled={isValidating || !couponInput}
+                          disabled={isValidating || !couponInput.trim()}
                           className="h-11 rounded-xl"
                         >
                           {isValidating ? (
@@ -848,10 +910,13 @@ export default function CheckoutPage() {
                               key={coupon.code}
                               className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700"
                             >
-                              {coupon.code} (-{formatPrice(String(coupon.amount))})
+                              {coupon.code} (-
+                              {formatPrice(String(coupon.amount))})
+
                               <button
                                 type="button"
                                 onClick={() => removeCoupon(coupon.code)}
+                                aria-label={`Remove ${coupon.code} coupon`}
                               >
                                 <X className="h-3 w-3" />
                               </button>
@@ -862,10 +927,11 @@ export default function CheckoutPage() {
                     </div>
 
                     {/* Rewards */}
-                    <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 space-y-3">
+                    <div className="space-y-3 rounded-2xl border border-blue-100 bg-blue-50 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2">
                           <Coins className="h-4 w-4 text-blue-700" />
+
                           <Label className="text-xs font-black uppercase tracking-widest text-blue-900">
                             Reward Points
                           </Label>
@@ -888,7 +954,11 @@ export default function CheckoutPage() {
                             {formatPrice(String(rewardDiscountValue))})
                           </span>
 
-                          <button type="button" onClick={removeRewardPoints}>
+                          <button
+                            type="button"
+                            onClick={removeRewardPoints}
+                            aria-label="Remove applied reward points"
+                          >
                             <X className="h-3 w-3" />
                           </button>
                         </div>
@@ -900,8 +970,8 @@ export default function CheckoutPage() {
                             min={1}
                             max={maxRedeemablePoints}
                             value={rewardPointsInput}
-                            onChange={(e) =>
-                              setRewardPointsInput(e.target.value)
+                            onChange={(event) =>
+                              setRewardPointsInput(event.target.value)
                             }
                             disabled={isRewardLoading || availablePoints <= 0}
                             className="h-11 rounded-xl bg-white"
@@ -933,7 +1003,6 @@ export default function CheckoutPage() {
 
                     <Separator />
 
-                    {/* Totals */}
                     <div className="space-y-3">
                       <SummaryRow label="Subtotal" value={subtotal} />
 
@@ -953,11 +1022,12 @@ export default function CheckoutPage() {
                         />
                       )}
 
-                      <div className="rounded-2xl bg-black p-5 text-white flex items-center justify-between">
+                      <div className="flex items-center justify-between rounded-2xl bg-black p-5 text-white">
                         <div>
                           <p className="text-[10px] font-black uppercase tracking-widest text-white/50">
                             Total Payable
                           </p>
+
                           <p className="mt-1 text-xs text-white/50">
                             Inclusive of applied benefits
                           </p>
@@ -970,8 +1040,8 @@ export default function CheckoutPage() {
                     </div>
 
                     <Button
-                      type="button"
-                      onClick={handleSubmit as any}
+                      type="submit"
+                      form="checkout-form"
                       className="h-14 w-full rounded-2xl text-sm font-black uppercase tracking-widest"
                       disabled={isSubmitting}
                     >
@@ -1037,6 +1107,7 @@ function SummaryRow({
       )}
     >
       <span>{label}</span>
+
       <span>
         {value < 0 ? "-" : ""}
         {formatPrice(String(Math.abs(value)))}
@@ -1066,10 +1137,12 @@ function MiniBadge({
       )}
     >
       <span className="mt-0.5">{icon}</span>
+
       <div>
-        <p className="font-black uppercase tracking-widest text-[9px]">
+        <p className="text-[9px] font-black uppercase tracking-widest">
           {title}
         </p>
+
         <p className="font-semibold">{text}</p>
       </div>
     </div>

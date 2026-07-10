@@ -1,10 +1,11 @@
 // Define the menu items
-export const mainMenu = {
-  home: "/",
-  shop: "/shop",
-  blog: "/posts",
-  about: "/about",
-};
+export const mainMenu = [
+  { name: "home", href: "/" },
+  { name: "shop", href: "/shop" },
+  { name: "blog", href: "/posts" },
+  { name: "about", href: "https://rakeshretails.in/about-us/", isExternal: true },
+];
+
 
 export const categoryMenu = {
   "Air Conditioners": "/shop/category/air-conditioners",
@@ -19,8 +20,8 @@ export const categoryMenu = {
 };
 export const MEGA_MENU_CONFIG = [
   {
-    name: "Cooling",
-    slug: "cooling",
+    name: "Air Conditioners",
+    slug: "air-conditioners",
     image: "/images/mega-menu/Ac-Menu-Banner.png",
     columns: [
       {
@@ -50,27 +51,11 @@ export const MEGA_MENU_CONFIG = [
         ],
       },
       {
-        title: "Air Coolers",
-        links: [
-          { name: "Symphony", slug: "symphony-cooler" },
-          { name: "Godrej", slug: "godrej-cooler" },
-          { name: "Usha", slug: "usha-cooler" },
-        ],
-      },
-      {
         title: "Commercial ACs",
         links: [
           { name: "Cassette", slug: "cassette-ac" },
           { name: "Ductable", slug: "ductable-ac" },
           { name: "Tower", slug: "tower-ac" },
-        ],
-      },
-      {
-        title: "Deep Freezers",
-        links: [
-          { name: "Haier", slug: "haier-deep-freezers" },
-          { name: "Blue Star", slug: "blue-star-deep-freezers" },
-          { name: "Godrej", slug: "godrej-deep-freezers" },
         ],
       },
     ],
@@ -113,39 +98,6 @@ export const MEGA_MENU_CONFIG = [
     ],
   },
   {
-    name: "Large Appliances",
-    slug: "washing-machine",
-    image: "/images/mega-menu/Larg-Apl-Menu-Banner.png",
-    columns: [
-      {
-        title: "Refrigerators",
-        links: [
-          { name: "Direct Cool", slug: "direct-cool-refrigerators" },
-          { name: "Frost Free", slug: "frost-free-refrigerators" },
-          { name: "Side-by-Side", slug: "side-by-side-refrigerators" },
-        ],
-      },
-      {
-        title: "Washing Machines",
-        links: [
-          { name: "Front Load", slug: "front-load-washers" },
-          { name: "Top Load", slug: "top-load-washers" },
-          { name: "Semi Automatic", slug: "semi-automatic-washers" },
-        ],
-      },
-      {
-        title: "Brand",
-        links: [
-          { name: "LG", slug: "lg-appliances" },
-          { name: "Godrej", slug: "godrej-appliances" },
-          { name: "Haier", slug: "haier-appliances" },
-          { name: "Whirlpool", slug: "whirlpool-appliances" },
-          { name: "IFB", slug: "ifb-appliances" },
-        ],
-      },
-    ],
-  },
-  {
     name: "Kitchen Appliances",
     slug: "kitchen-appliances",
     image: "/images/mega-menu/Kit-App-Menu-Banner.png",
@@ -166,7 +118,7 @@ export const MEGA_MENU_CONFIG = [
         links: [
           { name: "Mixer Grinder", slug: "mixer-grinders" },
           { name: "Coffee Maker", slug: "coffee-makers" },
-          { name: "Philips Air Fryer", slug: "air-fryers" },
+          { name: "Air Fryer", slug: "air-fryers" },
           { name: "Chimney", slug: "chimneys" },
           { name: "Sandwich Maker", slug: "sandwich-makers" },
           { name: "Kettle", slug: "kettles" },
@@ -196,33 +148,45 @@ export const MEGA_MENU_CONFIG = [
           { name: "Stabliser", slug: "stabilizers" },
           { name: "Vaccum Cleaner", slug: "vacuum-cleaners" },
           { name: "Massager", slug: "massagers" },
-          { name: "Water Dispenser", slug: "water-dispensers" },
-        ],
-      },
-      {
-        title: "Utility",
-        links: [
           { name: "Iron", slug: "dry-steam-irons" },
-          { name: "Hair Dryer", slug: "hair-dryers" },
-          { name: "Inverter", slug: "inverters" },
-          { name: "Hair Curler", slug: "hair-curlers" },
-          { name: "TRIMMER", slug: "trimmers" },
-          { name: "Straightner", slug: "hair-straighteners" },
+          { name: "Water Dispenser", slug: "water-dispensers" },
+          { name: "Water Purifier", slug: "lg-water-purifiers" },
+          { name: "Air Purifier", slug: "havells-air-purifiers" },
         ],
       },
       {
-        title: "Water Purifier",
+        title: "Refrigerators",
         links: [
-          { name: "LG Water purifier", slug: "lg-water-purifiers" },
+          { name: "Direct Cool", slug: "direct-cool-refrigerators" },
+          { name: "Frost Free", slug: "frost-free-refrigerators" },
+          { name: "Side-by-Side", slug: "side-by-side-refrigerators" },
         ],
       },
       {
-        title: "Air Purifier",
+        title: "Washing Machines",
         links: [
-          { name: "Havells Air Purifier", slug: "havells-air-purifiers" },
+          { name: "Front Load", slug: "front-load-washers" },
+          { name: "Top Load", slug: "top-load-washers" },
+          { name: "Semi Automatic", slug: "semi-automatic-washers" },
+        ],
+      },
+      {
+        title: "Air Coolers",
+        links: [
+          { name: "Symphony", slug: "symphony-cooler" },
+          { name: "Godrej", slug: "godrej-cooler" },
+          { name: "Usha", slug: "usha-cooler" },
         ],
       },
       
+      {
+        title: "Deep Freezers",
+        links: [
+          { name: "Haier", slug: "haier-deep-freezers" },
+          { name: "Blue Star", slug: "blue-star-deep-freezers" },
+          { name: "Godrej", slug: "godrej-deep-freezers" },
+        ],
+      },
     ],
   },
   {

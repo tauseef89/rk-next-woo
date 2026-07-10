@@ -38,8 +38,10 @@ function getCartLineKey(item: any) {
     item.extendedWarrantyApplied && item.extendedWarranty
       ? [
           "with-warranty",
-          item.extendedWarranty.title,
-          item.extendedWarranty.percentage,
+          item.extendedWarranty.category || "unknown-category",
+          item.extendedWarranty.planYears ||
+            item.extendedWarranty.title ||
+            "unknown-plan",
           item.extendedWarranty.price,
         ].join("-")
       : "without-warranty";
@@ -51,9 +53,26 @@ function getCartLineKey(item: any) {
 
 function parseCartPrice(price: string | number | undefined | null) {
   if (!price) return 0;
-  if (typeof price === "number") return price;
+
+  if (typeof price === "number") {
+    return price;
+  }
 
   return Number(price.replace(/[^0-9.]/g, "")) || 0;
+}
+
+function getWarrantyPlanLabel(warranty: any) {
+  if (!warranty) {
+    return "Extended Warranty";
+  }
+
+  if (warranty.planYears) {
+    return `${warranty.planYears} ${
+      warranty.planYears === 1 ? "Year" : "Years"
+    } Extended Warranty`;
+  }
+
+  return warranty.title || "Extended Warranty";
 }
 
 export function CartDrawer() {
@@ -80,7 +99,7 @@ export function CartDrawer() {
           <ShoppingCart className="h-5 w-5" />
 
           {itemCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
+            <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
               {itemCount > 99 ? "99+" : itemCount}
             </span>
           )}
@@ -89,7 +108,7 @@ export function CartDrawer() {
         </Button>
       </SheetTrigger>
 
-      <SheetContent className="flex flex-col w-full sm:max-w-lg">
+      <SheetContent className="flex w-full flex-col sm:max-w-lg">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <ShoppingCart className="h-5 w-5" />
@@ -98,13 +117,13 @@ export function CartDrawer() {
         </SheetHeader>
 
         {isLoading ? (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-1 items-center justify-center">
             <div className="animate-pulse text-muted-foreground">
               Loading...
             </div>
           </div>
         ) : cart.items.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4">
+          <div className="flex flex-1 flex-col items-center justify-center gap-4">
             <ShoppingCart className="h-16 w-16 text-muted-foreground/50" />
 
             <p className="text-muted-foreground">Your cart is empty</p>
@@ -117,17 +136,23 @@ export function CartDrawer() {
           </div>
         ) : (
           <>
-            <ScrollArea className="flex-1 -mx-6 px-6">
+            <ScrollArea className="-mx-6 flex-1 px-6">
               <div className="space-y-4 py-4">
                 {cart.items.map((item: any) => {
                   const cartLineKey = getCartLineKey(item);
+
                   const itemPrice = parseCartPrice(item.price);
                   const lineTotal = itemPrice * item.quantity;
 
+                  const warrantyPrice =
+                    item.extendedWarrantyApplied && item.extendedWarranty
+                      ? parseCartPrice(item.extendedWarranty.price)
+                      : 0;
+
                   return (
                     <div key={cartLineKey} className="flex gap-4">
-                      {/* Image */}
-                      <div className="relative h-20 w-20 flex-shrink-0 rounded-md overflow-hidden bg-muted">
+                      {/* Product Image */}
+                      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md bg-muted">
                         {item.image ? (
                           <Image
                             src={item.image}
@@ -137,22 +162,22 @@ export function CartDrawer() {
                             sizes="80px"
                           />
                         ) : (
-                          <div className="flex items-center justify-center w-full h-full text-muted-foreground text-xs">
+                          <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
                             No image
                           </div>
                         )}
                       </div>
 
-                      {/* Details */}
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-sm line-clamp-2">
+                      {/* Product Details */}
+                      <div className="min-w-0 flex-1">
+                        <h4 className="line-clamp-2 text-sm font-medium">
                           {item.name}
                         </h4>
 
                         {item.attributes && item.attributes.length > 0 && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
+                          <p className="mt-0.5 text-xs text-muted-foreground">
                             {item.attributes
-                              .map((a: any) => a.option)
+                              .map((attribute: any) => attribute.option)
                               .join(", ")}
                           </p>
                         )}
@@ -181,19 +206,27 @@ export function CartDrawer() {
                           item.extendedWarranty && (
                             <div className="mt-2 rounded-md bg-blue-50 px-2 py-1 text-xs text-blue-700">
                               <p className="font-semibold">
-                                {item.extendedWarranty.title}
+                                {getWarrantyPlanLabel(item.extendedWarranty)}
                               </p>
 
+                              {item.extendedWarranty.category && (
+                                <p className="capitalize">
+                                  Product Type:{" "}
+                                  {item.extendedWarranty.category.replace(
+                                    /-/g,
+                                    " "
+                                  )}
+                                </p>
+                              )}
+
                               <p>
-                                Charge: {item.extendedWarranty.percentage}% ={" "}
-                                {formatPrice(
-                                  item.extendedWarranty.price.toString()
-                                )}
+                                Warranty Charge:{" "}
+                                {formatPrice(warrantyPrice.toString())}
                               </p>
                             </div>
                           )}
 
-                        <p className="font-medium mt-2">
+                        <p className="mt-2 font-medium">
                           {formatPrice(item.price.toString())}
                         </p>
 
@@ -207,8 +240,8 @@ export function CartDrawer() {
                         )}
 
                         {/* Quantity Controls */}
-                        <div className="flex items-center gap-2 mt-2">
-                          <div className="flex items-center border rounded-md">
+                        <div className="mt-2 flex items-center gap-2">
+                          <div className="flex items-center rounded-md border">
                             <Button
                               variant="ghost"
                               size="icon"
@@ -263,7 +296,7 @@ export function CartDrawer() {
                         </div>
                       </div>
 
-                      {/* Line Total */}
+                      {/* Product Line Total */}
                       <div className="text-right">
                         <p className="font-medium">
                           {formatPrice(lineTotal.toString())}
@@ -275,8 +308,7 @@ export function CartDrawer() {
               </div>
             </ScrollArea>
 
-            <div className="border-t pt-4 space-y-4">
-              {/* Totals */}
+            <div className="space-y-4 border-t pt-4">
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
@@ -305,7 +337,6 @@ export function CartDrawer() {
                 </div>
               </div>
 
-              {/* Actions */}
               <div className="space-y-2">
                 <SheetClose asChild>
                   <Button asChild className="w-full" size="lg">

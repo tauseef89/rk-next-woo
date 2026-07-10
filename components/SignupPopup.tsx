@@ -9,6 +9,7 @@ import {
   Mail,
   Lock,
   User,
+  Phone,
   Loader2,
   Sparkles,
   LogIn,
@@ -27,6 +28,7 @@ export default function SignupPopup({
 }: SignupPopupProps) {
   const [formData, setFormData] = useState({
     username: "",
+    phone: "",
     email: "",
     password: "",
   });
@@ -42,17 +44,28 @@ export default function SignupPopup({
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+
+    // Allow only 10 digits in the mobile field
+    const updatedValue =
+      name === "phone" ? value.replace(/\D/g, "").slice(0, 10) : value;
+
     setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [name]: updatedValue,
     }));
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+
+    if (formData.phone.length !== 10) {
+      setError("Please enter a valid 10-digit mobile number.");
+      return;
+    }
 
     setLoading(true);
-    setError("");
 
     try {
       const res = await fetch("/api/register", {
@@ -66,17 +79,13 @@ export default function SignupPopup({
           username: formData.username,
           email: formData.email,
           password: formData.password,
-          phone: "",
+          phone: formData.phone,
         }),
       });
 
       const data = await res.json().catch(() => null);
 
       if (res.ok && data?.success !== false) {
-        if (data?.token && typeof window !== "undefined") {
-          localStorage.setItem("woo-token", data.token);
-        }
-
         login({
           id: String(data?.user?.id || data?.user_id || ""),
           email: data?.user?.email || data?.user_email || formData.email,
@@ -87,7 +96,6 @@ export default function SignupPopup({
         });
 
         closePopup();
-
         router.refresh();
         router.push("/shop?welcome=true");
         return;
@@ -134,7 +142,7 @@ export default function SignupPopup({
               </p>
 
               <h2 className="mt-2 text-3xl font-black tracking-tight">
-                Claim ₹1,000 Discount
+                Claim ₹1,000 Discount Coupon
               </h2>
 
               <p className="mt-2 text-sm font-medium text-white/60">
@@ -159,6 +167,19 @@ export default function SignupPopup({
               placeholder="Full Name"
               value={formData.username}
               onChange={handleChange}
+              autoComplete="name"
+            />
+
+            <InputWithIcon
+              icon={<Phone className="h-4 w-4" />}
+              name="phone"
+              type="tel"
+              placeholder="10-digit Mobile Number"
+              value={formData.phone}
+              onChange={handleChange}
+              inputMode="numeric"
+              maxLength={10}
+              autoComplete="tel"
             />
 
             <InputWithIcon
@@ -168,6 +189,7 @@ export default function SignupPopup({
               placeholder="Email Address"
               value={formData.email}
               onChange={handleChange}
+              autoComplete="email"
             />
 
             <InputWithIcon
@@ -177,6 +199,7 @@ export default function SignupPopup({
               placeholder="Create Password"
               value={formData.password}
               onChange={handleChange}
+              autoComplete="new-password"
             />
 
             <button
@@ -231,6 +254,9 @@ function InputWithIcon({
   placeholder,
   value,
   onChange,
+  inputMode,
+  maxLength,
+  autoComplete,
 }: {
   icon: React.ReactNode;
   name: string;
@@ -238,6 +264,9 @@ function InputWithIcon({
   placeholder: string;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  maxLength?: number;
+  autoComplete?: string;
 }) {
   return (
     <div className="relative">
@@ -250,6 +279,9 @@ function InputWithIcon({
         type={type}
         required
         placeholder={placeholder}
+        inputMode={inputMode}
+        maxLength={maxLength}
+        autoComplete={autoComplete}
         className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 py-4 pl-11 pr-4 text-sm font-medium outline-none transition-all focus:border-black focus:bg-white focus:ring-2 focus:ring-black/10"
         value={value}
         onChange={onChange}

@@ -1,218 +1,541 @@
 "use client";
 
-import { useState } from "react";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Info, Zap, CreditCard, Landmark } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Info,
+  Landmark,
+  Loader2,
+  Zap,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// 1. Data Structure for Bank Plans
-const BANKS = [
-  { 
-    id: "hdfc", 
-    name: "HDFC Bank", 
-    creditRate: 15.5, 
-    debitRate: 16, 
-    noCostMonths: [3, 6], // Eligibility for 0% interest
-    offer: "Flat ₹2,000 Instant Discount on Credit Cards" 
-  },
-  { 
-    id: "icici", 
-    name: "ICICI Bank", 
-    creditRate: 15.99, 
-    debitRate: 14, 
-    noCostMonths: [3], 
-    offer: "10% Instant Discount up to ₹1,500" 
-  },
-  { 
-    id: "sbi", 
-    name: "SBI Card", 
-    creditRate: 14.5, 
-    debitRate: 15.1, 
-    noCostMonths: [], 
-    offer: "Extra 5% Cashback on SBI Credit Cards" 
-  },
-  { 
-    id: "axis", 
-    name: "Axis Bank", 
-    creditRate: 16, 
-    debitRate: 16, 
-    noCostMonths: [3, 6], 
-    offer: "No Cost EMI for up to 6 Months" 
-  },
-];
+type PineLabsMoney = {
+  currency?: string;
+  value?: number;
+};
+
+type PineLabsDiscount = {
+  discount_type?: string;
+  percentage?: number;
+  amount?: PineLabsMoney;
+  max_amount?: PineLabsMoney;
+};
+
+type PineLabsIssuerData = {
+  terms_and_conditions?: string;
+  show_key_fact_statement?: boolean;
+  is_consent_page_required?: boolean;
+  auth_type?: string;
+};
+
+type PineLabsTenure = {
+  tenure_id: string;
+  name: string;
+  tenure_type?: string;
+  tenure_value: number;
+
+  discount?: PineLabsDiscount | null;
+
+  monthly_emi_amount?: PineLabsMoney | null;
+  total_emi_amount?: PineLabsMoney | null;
+  interest_amount?: PineLabsMoney | null;
+
+  interest_rate_percentage?: number;
+
+  processing_fee_amount?: PineLabsMoney | null;
+  emi_type?: string;
+};
+
+type PineLabsIssuer = {
+  id: string;
+  name?: string;
+  display_name?: string;
+  issuer_type?: string;
+  priority?: number;
+  issuer_data?: PineLabsIssuerData | null;
+  tenures?: PineLabsTenure[];
+};
+
+type EMIOffersApiResponse = {
+  success?: boolean;
+  error?: string;
+  issuers?: PineLabsIssuer[];
+};
 
 interface EMIOptionsProps {
-  price: string;
+  price: string | number;
+
+  /*
+    Kept so existing component usage does not break.
+    Later useful for Brand EMI / product_details integration.
+  */
+  productCode?: string;
+}
+
+function parsePrice(value: string | number): number {
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  }
+
+  const cleaned = value.replace(/[₹,\s]/g, "").trim();
+
+  if (!/^\d+(\.\d{1,2})?$/.test(cleaned)) {
+    return 0;
+  }
+
+  const parsed = Number(cleaned);
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function formatPaise(value?: number | null): string {
+  const amountInRupees = Number(value || 0) / 100;
+
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(amountInRupees);
+}
+
+function getValidTenures(issuer: PineLabsIssuer): PineLabsTenure[] {
+  return (issuer.tenures || [])
+    .filter((tenure) => Number(tenure.tenure_value || 0) > 0)
+    .filter(
+      (tenure) =>
+        Number(tenure.monthly_emi_amount?.value || 0) > 0
+    )
+    .sort(
+      (firstTenure, secondTenure) =>
+        Number(firstTenure.tenure_value || 0) -
+        Number(secondTenure.tenure_value || 0)
+    );
+}
+
+function isNoCostEMI(tenure: PineLabsTenure): boolean {
+  const emiType = tenure.emi_type?.toUpperCase() || "";
+
+  return emiType === "NO_COST" || emiType === "NO_COST_EMI";
+}
+
+function getOfferText(issuer: PineLabsIssuer): string | null {
+  const tenureWithOffer = getValidTenures(issuer).find((tenure) => {
+    const percentage = Number(tenure.discount?.percentage || 0);
+    const amount = Number(tenure.discount?.amount?.value || 0);
+    const maxAmount = Number(tenure.discount?.max_amount?.value || 0);
+
+    return percentage > 0 || amount > 0 || maxAmount > 0;
+  });
+
+  const discount = tenureWithOffer?.discount;
+
+  if (!discount) {
+    return null;
+  }
+
+  const percentage = Number(discount.percentage || 0);
+  const maximumDiscount = Number(discount.max_amount?.value || 0);
+  const discountAmount = Number(discount.amount?.value || 0);
+
+  if (percentage > 0 && maximumDiscount > 0) {
+    return `${percentage}% instant discount up to ${formatPaise(
+      maximumDiscount
+    )}`;
+  }
+
+  if (percentage > 0) {
+    return `${percentage}% instant discount available`;
+  }
+
+  if (discountAmount > 0) {
+    return `Instant discount of ${formatPaise(discountAmount)}`;
+  }
+
+  return null;
 }
 
 export function EMIOptions({ price }: EMIOptionsProps) {
-  const [cardType, setCardType] = useState<"credit" | "debit">("credit");
-  
-  // Clean price string to numeric (e.g., "₹70,000" -> 70000)
-  const numericPrice = parseFloat(price.replace(/[^0-9.-]+/g, ""));
+  const numericPrice = parsePrice(price);
 
-  const formatCurrency = (val: number) => 
-    new Intl.NumberFormat("en-IN", { 
-      style: "currency", 
-      currency: "INR", 
-      maximumFractionDigits: 0 
-    }).format(val);
+  const [open, setOpen] = useState(false);
+  const [issuers, setIssuers] = useState<PineLabsIssuer[]>([]);
+  const [activeIssuerId, setActiveIssuerId] = useState("");
 
-  // EMI Formula: [P x R x (1+R)^N]/[(1+R)^N-1]
-  const calculateEMI = (principal: number, annualRate: number, months: number, isNoCost: boolean) => {
-    if (isNoCost) return Math.round(principal / months);
-    const r = annualRate / 12 / 100;
-    const emi = (principal * r * Math.pow(1 + r, months)) / (Math.pow(1 + r, months) - 1);
-    return Math.round(emi);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const hasNoCostEMI = useMemo(() => {
+    return issuers.some((issuer) =>
+      getValidTenures(issuer).some(isNoCostEMI)
+    );
+  }, [issuers]);
+
+  const starting24MonthPlan = useMemo(() => {
+    const twentyFourMonthPlans = issuers
+      .flatMap((issuer) => getValidTenures(issuer))
+      .filter((tenure) => tenure.tenure_value === 24)
+      .sort(
+        (firstPlan, secondPlan) =>
+          Number(firstPlan.monthly_emi_amount?.value || 0) -
+          Number(secondPlan.monthly_emi_amount?.value || 0)
+      );
+
+    return twentyFourMonthPlans[0] || null;
+  }, [issuers]);
+
+  const loadEMIOffers = useCallback(async () => {
+    if (!numericPrice || numericPrice <= 0) {
+      setIssuers([]);
+      setActiveIssuerId("");
+      setLoading(false);
+      setError("Product price is unavailable.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setIssuers([]);
+    setActiveIssuerId("");
+
+    try {
+      const response = await fetch("/api/pinelabs/emi-offers", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amount: numericPrice,
+        }),
+      });
+
+      const data = (await response.json()) as EMIOffersApiResponse;
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.error || "Unable to fetch available EMI plans."
+        );
+      }
+
+      const receivedIssuers = Array.isArray(data.issuers)
+        ? data.issuers
+        : [];
+
+      setIssuers(receivedIssuers);
+      setActiveIssuerId(receivedIssuers[0]?.id || "");
+
+      if (receivedIssuers.length === 0) {
+        setError(
+          "No Credit Card EMI plans are currently available for this product."
+        );
+      }
+    } catch (requestError) {
+      setIssuers([]);
+      setActiveIssuerId("");
+
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to fetch available EMI plans."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [numericPrice]);
+
+  useEffect(() => {
+    void loadEMIOffers();
+  }, [loadEMIOffers]);
+
+  const handleDialogChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+
+    if (nextOpen && issuers.length === 0 && !loading) {
+      void loadEMIOffers();
+    }
+
+    if (!nextOpen) {
+      setError("");
+    }
   };
-
-  // Base starting EMI (calculated on 24 months at standard 15% rate)
-  const startingEMIAmount = calculateEMI(numericPrice, 15, 24, false);
 
   return (
     <div className="space-y-3">
-      {/* A. Starting From Display */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <p className="text-[15px] text-zinc-600">
-          Standard EMI starting from <span className="font-bold text-zinc-900">{formatCurrency(startingEMIAmount)}/mo</span>
+          {loading && issuers.length === 0 ? (
+            "Checking EMI options..."
+          ) : starting24MonthPlan ? (
+            <>
+              EMI starting from{" "}
+              <span className="font-bold text-zinc-900">
+                {formatPaise(
+                  starting24MonthPlan.monthly_emi_amount?.value
+                )}
+                /mo
+              </span>{" "}
+              for 24 months.
+            </>
+          ) : (
+            "EMI plans available on participating credit cards."
+          )}
         </p>
-        
-        <Dialog>
+
+        <Dialog open={open} onOpenChange={handleDialogChange}>
           <DialogTrigger asChild>
-            <button className="text-sm font-bold text-blue-700 underline underline-offset-4 hover:text-blue-800 transition-colors">
-              See all bank plans
+            <button
+              type="button"
+              className="text-sm font-bold text-blue-700 underline underline-offset-4 transition-colors hover:text-blue-800"
+            >
+              See EMI options
             </button>
           </DialogTrigger>
 
-          <DialogContent className="max-w-2xl rounded-2xl p-0 overflow-hidden gap-0">
-            {/* Popup Header */}
-            <div className="p-6 bg-zinc-950 text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                  <Landmark className="text-blue-400" size={20} />
-                  Bank Offers & EMI
-                </DialogTitle>
-                <DialogDescription className="text-zinc-400 mt-1">
-                  Choose your bank and card type to view specific installments.
-                </DialogDescription>
-              </div>
+          <DialogContent className="max-h-[90vh] max-w-2xl overflow-hidden gap-0 rounded-2xl p-0 [&>button]:right-4 [&>button]:top-4 [&>button]:z-50 [&>button]:rounded-full [&>button]:bg-white/15 [&>button]:p-2 [&>button]:text-white [&>button]:opacity-100 [&>button]:shadow-sm [&>button]:transition-colors [&>button]:hover:bg-white/25 [&>button]:hover:text-white [&>button]:focus:ring-2 [&>button]:focus:ring-white/50 [&>button]:focus:ring-offset-0">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Bank Offers and EMI</DialogTitle>
+              <DialogDescription>
+                Available Credit Card EMI plans.
+              </DialogDescription>
+            </DialogHeader>
 
-              {/* Credit/Debit Toggle */}
-              <div className="inline-flex bg-zinc-800 p-1 rounded-xl border border-zinc-700">
-                {(["credit", "debit"] as const).map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => setCardType(type)}
-                    className={cn(
-                      "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                      cardType === type 
-                        ? "bg-white text-zinc-950 shadow-lg" 
-                        : "text-zinc-500 hover:text-zinc-300"
-                    )}
-                  >
-                    {type}
-                  </button>
-                ))}
-              </div>
+            <div className="bg-zinc-950 p-6 text-white">
+              <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+                <Landmark className="text-blue-400" size={20} />
+                Bank Offers & EMI
+              </DialogTitle>
+
+              <DialogDescription className="mt-1 text-zinc-400">
+                Available Credit Card EMI plans for this product.
+              </DialogDescription>
             </div>
 
-            {/* Sidebar & Content Layout */}
-            <Tabs defaultValue="hdfc" className="flex flex-col md:flex-row h-[420px]">
-              <TabsList className="flex md:flex-col h-auto md:w-44 bg-zinc-50 p-2 justify-start rounded-none border-r space-y-1">
-                {BANKS.map((bank) => (
-                  <TabsTrigger 
-                    key={bank.id} 
-                    value={bank.id}
-                    className="w-full justify-start py-3 font-bold text-[10px] tracking-widest uppercase data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            <div className="min-h-[420px] max-h-[65vh] overflow-y-auto bg-white p-6">
+              {loading && issuers.length === 0 && (
+                <div className="flex h-[360px] flex-col items-center justify-center gap-3">
+                  <Loader2
+                    className="animate-spin text-blue-700"
+                    size={28}
+                  />
+
+                  <p className="text-sm font-medium text-zinc-500">
+                    Loading available EMI plans...
+                  </p>
+                </div>
+              )}
+
+              {!loading && error && issuers.length === 0 && (
+                <div className="flex h-[360px] flex-col items-center justify-center gap-4 px-8 text-center">
+                  <AlertCircle className="text-red-500" size={28} />
+
+                  <p className="text-sm font-semibold text-zinc-800">
+                    {error}
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => void loadEMIOffers()}
+                    className="text-sm font-bold text-blue-700 underline underline-offset-4"
                   >
-                    {bank.name}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+                    Try again
+                  </button>
+                </div>
+              )}
 
-              <div className="flex-1 overflow-y-auto p-6 bg-white">
-                {BANKS.map((bank) => {
-                  const rate = cardType === "credit" ? bank.creditRate : bank.debitRate;
-                  return (
-                    <TabsContent key={bank.id} value={bank.id} className="m-0 space-y-6 animate-in fade-in-50 duration-300">
-                      
-                      {/* Bank Promo Section */}
-                      <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center gap-3">
-                        <CheckCircle2 className="text-emerald-600 shrink-0" size={20} />
-                        <p className="text-sm font-bold text-emerald-900 leading-tight">
-                          {bank.offer}
-                        </p>
-                      </div>
+              {issuers.length > 0 && (
+                <Tabs
+                  value={activeIssuerId}
+                  onValueChange={setActiveIssuerId}
+                  className="flex flex-col md:flex-row"
+                >
+                  <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl border border-zinc-100 bg-zinc-50 p-2 md:w-48 md:flex-col md:overflow-visible">
+                    {issuers.map((issuer) => (
+                      <TabsTrigger
+                        key={issuer.id}
+                        value={issuer.id}
+                        className="w-auto shrink-0 justify-start py-3 text-left text-[10px] font-bold uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-sm md:w-full"
+                      >
+                        {issuer.display_name ||
+                          issuer.name ||
+                          "Credit Card EMI"}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
 
-                      {/* EMI Table */}
-                      <div className="border border-zinc-100 rounded-2xl overflow-hidden shadow-sm">
-                        <table className="w-full text-sm text-left">
-                          <thead className="bg-zinc-50/80 border-b border-zinc-100">
-                            <tr>
-                              <th className="px-5 py-4 font-bold text-zinc-900 uppercase text-[10px] tracking-widest">Plan</th>
-                              <th className="px-5 py-4 font-bold text-zinc-900 uppercase text-[10px] tracking-widest text-right">Monthly Installment</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-zinc-50">
-                            {[3, 6, 9, 12, 18, 24].map((months) => {
-                              const isNoCost = bank.noCostMonths.includes(months) && cardType === "credit";
-                              const monthlyAmount = calculateEMI(numericPrice, rate, months, isNoCost);
-                              return (
-                                <tr key={months} className={cn("transition-colors", isNoCost ? "bg-orange-50/40 hover:bg-orange-50/60" : "hover:bg-zinc-50/30")}>
-                                  <td className="px-5 py-5">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-bold text-zinc-900 text-base">{months} Months</span>
-                                      {isNoCost && (
-                                        <Badge className="bg-orange-500 text-white border-none text-[9px] font-black hover:bg-orange-500 px-1.5 py-0.5">
-                                          NO COST
-                                        </Badge>
-                                      )}
-                                    </div>
-                                    <p className="text-[10px] text-zinc-400 font-semibold mt-0.5">
-                                      {isNoCost ? "ZERO INTEREST" : `${rate}% p.a. interest`}
-                                    </p>
-                                  </td>
-                                  <td className="px-5 py-5 text-right">
-                                    <p className="font-bold text-zinc-900 text-base">{formatCurrency(monthlyAmount)}</p>
-                                    <p className="text-[10px] text-zinc-400 font-medium">Total Payable: {formatCurrency(monthlyAmount * months)}</p>
-                                  </td>
+                  <div className="mt-4 flex-1 md:mt-0 md:pl-5">
+                    {issuers.map((issuer) => {
+                      const tenures = getValidTenures(issuer);
+                      const offerText = getOfferText(issuer);
+
+                      return (
+                        <TabsContent
+                          key={issuer.id}
+                          value={issuer.id}
+                          className="m-0 space-y-4"
+                        >
+                          {offerText && (
+                            <div className="flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+                              <CheckCircle2
+                                className="shrink-0 text-emerald-600"
+                                size={19}
+                              />
+
+                              <p className="text-sm font-bold text-emerald-900">
+                                {offerText}
+                              </p>
+                            </div>
+                          )}
+
+                          <div className="overflow-hidden rounded-2xl border border-zinc-100 shadow-sm">
+                            <table className="w-full text-left text-sm">
+                              <thead className="border-b border-zinc-100 bg-zinc-50">
+                                <tr>
+                                  <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-zinc-900">
+                                    Plan
+                                  </th>
+
+                                  <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-widest text-zinc-900">
+                                    Monthly EMI
+                                  </th>
                                 </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </TabsContent>
-                  );
-                })}
-              </div>
-            </Tabs>
-            
-            {/* Footer Disclaimer */}
-            <div className="px-6 py-4 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between">
-              <p className="text-[10px] text-zinc-400 italic max-w-[80%] leading-normal">
-                *Bank processing fees and GST on interest may apply. No Cost EMI is offered as an upfront discount by the merchant.
+                              </thead>
+
+                              <tbody className="divide-y divide-zinc-100">
+                                {tenures.map((tenure) => {
+                                  const noCost = isNoCostEMI(tenure);
+
+                                  return (
+                                    <tr
+                                      key={tenure.tenure_id}
+                                      className={cn(
+                                        "transition-colors hover:bg-zinc-50",
+                                        noCost && "bg-orange-50/50"
+                                      )}
+                                    >
+                                      <td className="px-4 py-4">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <span className="font-bold text-zinc-900">
+                                            {tenure.name ||
+                                              `${tenure.tenure_value} Months`}
+                                          </span>
+
+                                          {noCost && (
+                                            <Badge className="border-none bg-orange-500 px-1.5 py-0.5 text-[9px] font-black text-white hover:bg-orange-500">
+                                              NO COST
+                                            </Badge>
+                                          )}
+                                        </div>
+
+                                        <p className="mt-1 text-[10px] font-medium text-zinc-400">
+                                          {noCost
+                                            ? "ZERO INTEREST"
+                                            : tenure.interest_rate_percentage
+                                            ? `${tenure.interest_rate_percentage}% p.a. interest`
+                                            : "Interest details at checkout"}
+                                        </p>
+                                      </td>
+
+                                      <td className="px-4 py-4 text-right">
+                                        <p className="font-bold text-zinc-900">
+                                          {formatPaise(
+                                            tenure.monthly_emi_amount?.value
+                                          )}
+                                        </p>
+
+                                        <p className="mt-1 text-[10px] text-zinc-400">
+                                          Total:{" "}
+                                          {formatPaise(
+                                            tenure.total_emi_amount?.value
+                                          )}
+                                        </p>
+
+                                        {Number(
+                                          tenure.processing_fee_amount?.value ||
+                                            0
+                                        ) > 0 && (
+                                          <p className="mt-1 text-[10px] text-zinc-400">
+                                            Processing fee:{" "}
+                                            {formatPaise(
+                                              tenure.processing_fee_amount
+                                                ?.value
+                                            )}
+                                            {" + applicable taxes"}
+                                          </p>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {issuer.issuer_data?.terms_and_conditions && (
+                            <div className="rounded-xl border border-amber-100 bg-amber-50 p-3">
+                              <p className="text-[11px] leading-relaxed text-amber-800">
+                                <span className="font-bold">
+                                  Bank terms:{" "}
+                                </span>
+                                {issuer.issuer_data.terms_and_conditions}
+                              </p>
+                            </div>
+                          )}
+                        </TabsContent>
+                      );
+                    })}
+                  </div>
+                </Tabs>
+              )}
+            </div>
+
+            <div className="flex items-start gap-2 border-t border-zinc-100 bg-zinc-50 px-6 py-4">
+              <Info
+                className="mt-0.5 shrink-0 text-zinc-400"
+                size={15}
+              />
+
+              <p className="text-[10px] italic leading-relaxed text-zinc-400">
+                EMI plans are shown for the current product amount. Final bank
+                eligibility, charges, applicable GST, and EMI confirmation are
+                completed securely by Pine Labs during checkout.
               </p>
-              <Landmark className="text-zinc-200" size={24} />
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* B. Visual "No Cost EMI" Hook */}
-      <div className="flex items-center gap-2 w-fit bg-amber-50 text-amber-700 px-2.5 py-1.5 rounded-lg border border-amber-100">
-        <Zap size={14} fill="currentColor" />
-        <span className="text-[11px] font-black uppercase tracking-wider">No Cost EMI Available</span>
-      </div>
+      {hasNoCostEMI && (
+        <div className="flex w-fit items-center gap-2 rounded-lg border border-amber-100 bg-amber-50 px-2.5 py-1.5 text-amber-700">
+          <Zap size={14} fill="currentColor" />
+
+          <span className="text-[11px] font-black uppercase tracking-wider">
+            No Cost EMI Available
+          </span>
+        </div>
+      )}
     </div>
   );
 }

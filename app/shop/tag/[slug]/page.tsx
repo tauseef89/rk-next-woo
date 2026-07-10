@@ -137,7 +137,8 @@ export default async function TagPage({ params, searchParams }: TagPageProps) {
                 </>
               ) : (
                 <div className="py-32 text-center border rounded-xl border-dashed">
-                  <p className="text-muted-foreground text-lg">No products match your current filters.</p>
+                  <p className="text-muted-foreground text-lg">No matching products found.</p>
+                  <p className="text-muted-foreground text-lg">We’re adding more products soon, so please come back again.</p>
                 </div>
               )}
             </div>

@@ -100,7 +100,7 @@ export function Nav({ className, children, id }: NavProps) {
                 onClick={() => setIsSignupPopupOpen(true)}
                 className="text-[13px] font-semibold text-yellow-300 hover:text-yellow-200 transition-colors animate-pulse"
               >
-                🎁 Claim Your 1,000 Signup Discount
+                🎁 Claim Your ₹ 1,000 Signup Discount
               </button>
             )}
 

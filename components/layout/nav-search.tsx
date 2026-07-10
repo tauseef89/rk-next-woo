@@ -95,7 +95,7 @@ export function NavSearch() {
           <Search className="h-5 w-5 text-muted-foreground shrink-0 hidden md:block" />
           
           <Input
-            placeholder="Search for electronics, clothes..."
+            placeholder="Search for Electronics, Appliances..."
             className="flex-1 border-none focus-visible:ring-0 shadow-none text-lg h-10 px-0 md:px-2"
             autoFocus
             value={query}
@@ -124,7 +124,7 @@ export function NavSearch() {
                 <span className="text-xs font-bold uppercase tracking-widest">Trending Now</span>
               </div>
               <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-                {["iPhone", "MacBook", "Watch", "AirPods"].map((item) => (
+                {["Split AC", "Window AC", "Air Fryer", "Refrigerator", "iPhone"].map((item) => (
                   <button
                     key={item}
                     onClick={() => handleFullSearch(item)}

@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 
 // --- STORE DATA ---
 const STORES = [
-  {
+{
     id: "narela-main",
     name: "Rakesh Retails Narela",
     city: "Delhi",
@@ -29,18 +29,44 @@ const STORES = [
     mapEmbedUrl: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d27957.204028378626!2d77.069644672452!3d28.84926352844552!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390da90012a1de07%3A0xf2647639b799df28!2sRAKESH%20RETAILS%20NARELA!5e0!3m2!1sen!2sin!4v1775815935091!5m2!1sen!2sin",
     directionUrl: "https://maps.app.goo.gl/RtEh8iDyT8qVzf5a8"
   },
+// {
+//     id: "rohini-sec8",
+//     name: "Rakesh Retails Rohini Sec 8",
+//     city: "Delhi",
+//     state: "Delhi",
+//     position: { lat: 28.7032, lng: 77.1246 },
+//     address: "m2k f, 19/2, Rohini Sector 8 Rd, Pocket 16, Sector 8, Rohini, Delhi, 110085",
+//     phone: "+91 11 4907 2512",
+//     timing: "10:30 AM - 9:00 PM",
+//     videoUrl: null,
+//     mapEmbedUrl: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3499.6692236349804!2d77.11601471028284!3d28.69953977552659!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390d03a381fa0d77%3A0x65a7a81865a45ca5!2sRAKESH%20RETAILS%20SECTOR-8%20M2K%20ROHINI!5e0!3m2!1sen!2sin!4v1775815824798!5m2!1sen!2sin",
+//     directionUrl: "https://maps.app.goo.gl/KnuZf4Yi5gaP3WVc7"
+//   },
   {
-    id: "rohini-sec8",
-    name: "Rakesh Retails Rohini",
-    city: "Delhi",
-    state: "Delhi",
-    position: { lat: 28.7032, lng: 77.1246 },
-    address: "m2k f, 19/2, Rohini Sector 8 Rd, Pocket 16, Sector 8, Rohini, Delhi, 110085",
-    phone: "+91 11 4907 2512",
-    timing: "10:30 AM - 9:00 PM",
-    videoUrl: null,
-    mapEmbedUrl: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3499.6692236349804!2d77.11601471028284!3d28.69953977552659!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390d03a381fa0d77%3A0x65a7a81865a45ca5!2sRAKESH%20RETAILS%20SECTOR-8%20M2K%20ROHINI!5e0!3m2!1sen!2sin!4v1775815824798!5m2!1sen!2sin",
-    directionUrl: "https://maps.app.goo.gl/KnuZf4Yi5gaP3WVc7"
+    "id": "rohini-sec17",
+    "name": "Rakesh Retails Rohini Sector 17",
+    "city": "Delhi",
+    "state": "Delhi",
+    "position": { "lat": 28.7196, "lng": 77.1064 },
+    "address": "B-2/89-90 SECTOR -17 ROHINI DELHI-110085",
+    "phone": "+91 72176 31429",
+    "timing": "10:30 AM - 9:00 PM",
+    "videoUrl": null,
+    "mapEmbedUrl": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3498.27804298624!2d77.1192464!3d28.7411144!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390d016e00b3c39f%3A0x875a5f38a0f02753!2sRAKESH%20RETAILS%20ROHINI%20SECTOR-17!5e0!3m2!1sen!2sin!4v1781260563678!5m2!1sen!2sin",
+    "directionUrl": "https://maps.app.goo.gl/UvueAhkde3eBG6LEA"
+  },
+  {
+    "id": "ashok-vihar",
+    "name": "Rakesh Retails Ashok Vihar",
+    "city": "Delhi",
+    "state": "Delhi",
+    "position": { "lat": 28.6923, "lng": 77.1738 },
+    "address": "B/3/2, Ashok Vihar II, Pocket B 3, Phase 2, Ashok Vihar, New Delhi, Delhi, 110052",
+    "phone": "+91 93117 72363",
+    "timing": "10:30 AM - 9:00 PM",
+    "videoUrl": null,
+    "mapEmbedUrl": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3499.895394746748!2d77.17175111028249!3d28.692775575530195!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390d035fbf892aed%3A0x4e42c584a4b25af3!2sRAKESH%20RETAILS%20ASHOK%20VIHAR!5e0!3m2!1sen!2sin!4v1781260740139!5m2!1sen!2sin",
+    "directionUrl": "https://maps.app.goo.gl/KtfebWAYFvgoi7WQ7"
   },
   {
     id: "rk-puram",
@@ -56,19 +82,6 @@ const STORES = [
     directionUrl: "https://maps.app.goo.gl/FJxxM5CR3b9b4FsD8"
   },
   {
-    id: "ashok-vihar",
-    name: "Rakesh Retails Ashok Vihar",
-    city: "New Delhi",
-    state: "Delhi",
-    position: { lat: 28.6946, lng: 77.1788 },
-    address: "B/3/2, Ashok Vihar II, Pocket B 3, Phase 2, Ashok Vihar, New Delhi, Delhi, 110052",
-    phone: "+91 93117 72363",
-    timing: "10:30 AM - 9:00 PM",
-    videoUrl: null,
-    mapEmbedUrl: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3499.895394746748!2d77.17175111028249!3d28.692775575530195!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390d035fbf892aed%3A0x4e42c584a4b25af3!2sRAKESH%20RETAILS%20ASHOK%20VIHAR!5e0!3m2!1sen!2sin!4v1775816176209!5m2!1sen!2sin",
-    directionUrl: "https://maps.app.goo.gl/HyQHh8nxh3e41kGU7"
-  },
-  {
     id: "budh-vihar",
     name: "Rakesh Retails Budh Vihar",
     city: "Delhi",
@@ -80,6 +93,71 @@ const STORES = [
     videoUrl: null,
     mapEmbedUrl: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3499.525869523049!2d77.085072410283!3d28.703826375524265!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390d07351fc8421b%3A0x45c7d9b99bccbe54!2sRAKESH%20RETAILS%20BUDH%20VIHAR!5e0!3m2!1sen!2sin!4v1775816257917!5m2!1sen!2sin",
     directionUrl: "https://maps.app.goo.gl/nksNnTViQxjqnyvx5"
+  },
+  {
+    "id": "uttam-nagar",
+    "name": "Rakesh Retails Uttam Nagar",
+    "city": "Delhi",
+    "state": "Delhi",
+    "position": { "lat": 28.6226, "lng": 77.0587 },
+    "address": "G-1/1, GROUND & IST FLOOR, NAJAFGARH ROAD, UTTAM NAGAR, NEW DELHI-110059",
+    "phone": "+91 96430 07995",
+    "timing": "10:30 AM - 9:00 PM",
+    "videoUrl": null,
+    "mapEmbedUrl": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3502.239355442957!2d77.05611181027942!3d28.62258757556867!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390d051e2642f16f%3A0x1bdb133c05f870af!2sRakesh%20Retails-Uttam%20Nagar!5e0!3m2!1sen!2sin!4v1781261101874!5m2!1sen!2sin",
+    "directionUrl": "https://maps.app.goo.gl/ZkR4YtgFTdw2ew5U8"
+  },
+  {
+    "id": "kanti-nagar",
+    "name": "Rakesh Retails Kanti Nagar",
+    "city": "Delhi",
+    "state": "Delhi",
+    "position": { "lat": 28.6716, "lng": 77.2803 },
+    "address": "KHASRA NO. 671/442, MAIN ROAD,KANTI NAGAR EXTENSION, VILLAGE UIDYANPUR, ILLAQA SHAHDARA, DELHI, 110032",
+    "phone": "+91 81300 47218",
+    "timing": "10:30 AM - 9:00 PM",
+    "videoUrl": null,
+    "mapEmbedUrl": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3500.6035514395453!2d77.27770361028156!3d28.671586975541885!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390ce5d6e3162bb5%3A0x230d5dbe83a53617!2sRAKESH%20RETAILS%20KANTI%20NAGAR!5e0!3m2!1sen!2sin!4v1781261231306!5m2!1sen!2sin",
+    "directionUrl": "https://maps.app.goo.gl/CX5toCZaToC5DbDt5"
+  },
+  // {
+  //   "id": "paschim-vihar",
+  //   "name": "Rakesh Retails Paschim Vihar",
+  //   "city": "Delhi",
+  //   "state": "Delhi",
+  //   "position": { "lat": 28.6631, "lng": 77.1063 },
+  //   "address": "B-1/19-A, GROUND FLOOR, PASCHIM VIHAR, NEW DELHI NEW DELHI ,DELHI, 110063",
+  //   "phone": "+91 93117 72362",
+  //   "timing": "10:30 AM - 9:00 PM",
+  //   "videoUrl": null,
+  //   "mapEmbedUrl": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3500.6035514395453!2d77.27770361028156!3d28.671586975541885!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390ce5d6e3162bb5%3A0x230d5dbe83a53617!2sRAKESH%20RETAILS%20KANTI%20NAGAR!5e0!3m2!1sen!2sin!4v1781261231306!5m2!1sen!2sin",
+  //   "directionUrl": "https://maps.app.goo.gl/KnuZf4Yi5gaP3WVc7"
+  // },
+  {
+    "id": "najafgarh",
+    "name": "Rakesh Retails Najafgarh",
+    "city": "Delhi",
+    "state": "Delhi",
+    "position": { "lat": 28.6090, "lng": 76.9840 },
+    "address": "1250/2, KRISHAN MANDIR GALI,NAJAFGARH, NEW DELHI -110043",
+    "phone": "+91 81300 47218",
+    "timing": "10:30 AM - 9:00 PM",
+    "videoUrl": null,
+    "mapEmbedUrl": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3502.498001550268!2d76.98130251027906!3d28.614832975572977!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390d0f478c73f017%3A0x9065cf35efa1cf47!2sRAKESH%20RETAILS%20NAJAFGARH!5e0!3m2!1sen!2sin!4v1781261410708!5m2!1sen!2sin",
+    "directionUrl": "https://maps.app.goo.gl/yHp65y7mSBVALWEE8"
+  },
+  {
+    "id": "inderpuri",
+    "name": "Rakesh Retails Inderpuri",
+    "city": "Delhi",
+    "state": "Delhi",
+    "position": { "lat": 28.6334, "lng": 77.1432 },
+    "address": "WZ-242, INDERPURI,NEW DELHI-110012",
+    "phone": "+91 81300 47218",
+    "timing": "10:30 AM - 9:00 PM",
+    "videoUrl": null,
+    "mapEmbedUrl": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3501.8582904497935!2d77.14270471027989!3d28.634008975562434!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390d03a381fa0d77%3A0x65a7a81865a45ca5!2sRAKESH%20RETAILS%20INDERPURI!5e0!3m2!1sen!2sin!4v1781261512705!5m2!1sen!2sin",
+    "directionUrl": "https://maps.app.goo.gl/orckkpk51uYZFvDM6"
   }
 ];
 

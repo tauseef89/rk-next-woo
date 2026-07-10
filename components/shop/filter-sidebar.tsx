@@ -133,7 +133,7 @@ export function FilterSidebar({
       range: [100000, maxPriceLimit],
     },
   ];
-
+  const shouldHideBrandFilter = pathname === "/shop" && Boolean(searchParams.get("product_brand"));
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between border-b pb-4">
@@ -154,7 +154,7 @@ export function FilterSidebar({
         defaultValue={["sort", "price", "product_brand"]}
       >
         {/* Brand */}
-        {brands.length > 0 && (
+        {brands.length > 0 && !shouldHideBrandFilter && (
           <AccordionItem value="product_brand" className="border-b">
             <AccordionTrigger className="text-sm font-bold uppercase tracking-wider text-primary">
               Filter By Brand

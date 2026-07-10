@@ -1,5 +1,3 @@
-// components/shop/appliance-exchange-product.tsx
-
 "use client";
 
 import { useMemo, useState } from "react";
@@ -7,8 +5,14 @@ import { useMemo, useState } from "react";
 export type ExchangeCategory =
   | "ac"
   | "washing_machine"
-  | "cooler"
-  | "refrigerator";
+  | "refrigerator"
+  | "deep_freezer"
+  | "microwave"
+  | "geyser"
+  | "stabilizer"
+  | "water_dispenser"
+  | "water_ro"
+  | "chimney";
 
 export type AppliedApplianceExchange = {
   category: ExchangeCategory;
@@ -23,6 +27,7 @@ export type AppliedApplianceExchange = {
   exchangeValue: number;
   totalExchangeDiscount: number;
   finalPrice: number;
+  quoteNote?: string;
 };
 
 type ApplianceExchangeProductProps = {
@@ -31,12 +36,41 @@ type ApplianceExchangeProductProps = {
   onExchangeChange?: (exchange: AppliedApplianceExchange | null) => void;
 };
 
-const applianceConfigs = {
+type ApplianceConfig = {
+  title: string;
+  categoryLabel: string;
+  typeLabel: string;
+  capacityLabel: string;
+  brands: string[];
+  types: string[];
+  capacities: string[];
+  requiresCapacity: boolean;
+};
+
+type ExchangeQuote = {
+  amount: number;
+  note?: string;
+};
+
+const COMMON_BRANDS = [
+  "LG",
+  "Samsung",
+  "Whirlpool",
+  "Haier",
+  "Godrej",
+  "Panasonic",
+  "Bosch",
+  "IFB",
+  "Voltas",
+  "Other",
+];
+
+const applianceConfigs: Record<ExchangeCategory, ApplianceConfig> = {
   ac: {
     title: "Exchange your old AC",
     categoryLabel: "Air Conditioner",
     typeLabel: "AC Type",
-    capacityLabel: "Capacity",
+    capacityLabel: "Cooling Capacity",
     brands: [
       "Daikin",
       "Voltas",
@@ -53,8 +87,9 @@ const applianceConfigs = {
       "Godrej",
       "Other",
     ],
-    types: ["Split AC", "Window AC"],
-    capacities: ["1 Ton", "1.5 Ton", "2 Ton", "Above 2 Ton"],
+    types: ["Window AC", "Split AC", "Cassette AC"],
+    capacities: [],
+    requiresCapacity: true,
   },
 
   washing_machine: {
@@ -76,31 +111,12 @@ const applianceConfigs = {
       "Other",
     ],
     types: [
-      "Fully Automatic Front Load",
-      "Fully Automatic Top Load",
       "Semi Automatic",
+      "Fully Automatic Top Load",
+      "Fully Automatic Front Load",
     ],
-    capacities: ["6 kg", "6.5 kg", "7 kg", "8 kg", "9 kg", "10 kg & Above"],
-  },
-
-  cooler: {
-    title: "Exchange your old Air Cooler",
-    categoryLabel: "Air Cooler",
-    typeLabel: "Cooler Type",
-    capacityLabel: "Tank Capacity",
-    brands: [
-      "Symphony",
-      "Bajaj",
-      "Havells",
-      "Crompton",
-      "Voltas",
-      "Orient",
-      "Usha",
-      "Kenstar",
-      "Other",
-    ],
-    types: ["Personal Cooler", "Tower Cooler", "Desert Cooler", "Window Cooler"],
-    capacities: ["Below 20L", "20L - 40L", "41L - 60L", "Above 60L"],
+    capacities: ["Below 6 kg", "6 - 7 kg", "7.5 - 8 kg", "Above 8 kg"],
+    requiresCapacity: true,
   },
 
   refrigerator: {
@@ -108,26 +124,8 @@ const applianceConfigs = {
     categoryLabel: "Refrigerator",
     typeLabel: "Refrigerator Type",
     capacityLabel: "Capacity",
-    brands: [
-      "LG",
-      "Samsung",
-      "Whirlpool",
-      "Haier",
-      "Godrej",
-      "Panasonic",
-      "Bosch",
-      "Hitachi",
-      "Voltas Beko",
-      "Liebherr",
-      "Other",
-    ],
-    types: [
-      "Single Door",
-      "Double Door",
-      "Triple Door",
-      "Side by Side",
-      "Bottom Freezer",
-    ],
+    brands: COMMON_BRANDS,
+    types: ["Direct Cool", "Double Door", "Side by Side"],
     capacities: [
       "Up to 190L",
       "191L - 250L",
@@ -135,8 +133,86 @@ const applianceConfigs = {
       "351L - 500L",
       "Above 500L",
     ],
+    requiresCapacity: true,
   },
-} as const;
+
+  deep_freezer: {
+    title: "Exchange your old Deep Freezer",
+    categoryLabel: "Deep Freezer",
+    typeLabel: "Freezer Type",
+    capacityLabel: "Capacity",
+    brands: COMMON_BRANDS,
+    types: ["Chest Freezer", "Vertical Freezer"],
+    capacities: ["150L - 320L", "Above 400L"],
+    requiresCapacity: true,
+  },
+
+  microwave: {
+    title: "Exchange your old Microwave",
+    categoryLabel: "Microwave",
+    typeLabel: "Microwave Type",
+    capacityLabel: "Capacity",
+    brands: COMMON_BRANDS,
+    types: ["Solo Microwave", "Grill Microwave", "Convection Microwave"],
+    capacities: [],
+    requiresCapacity: false,
+  },
+
+  geyser: {
+    title: "Exchange your old Geyser",
+    categoryLabel: "Geyser",
+    typeLabel: "Geyser Type",
+    capacityLabel: "Capacity",
+    brands: COMMON_BRANDS,
+    types: ["Storage Water Heater", "Instant Water Heater"],
+    capacities: [],
+    requiresCapacity: false,
+  },
+
+  stabilizer: {
+    title: "Exchange your old Stabilizer",
+    categoryLabel: "Stabilizer",
+    typeLabel: "Stabilizer Type",
+    capacityLabel: "Capacity",
+    brands: COMMON_BRANDS,
+    types: ["Voltage Stabilizer"],
+    capacities: [],
+    requiresCapacity: false,
+  },
+
+  water_dispenser: {
+    title: "Exchange your old Water Dispenser",
+    categoryLabel: "Water Dispenser",
+    typeLabel: "Dispenser Type",
+    capacityLabel: "Capacity",
+    brands: COMMON_BRANDS,
+    types: ["Water Dispenser"],
+    capacities: [],
+    requiresCapacity: false,
+  },
+
+  water_ro: {
+    title: "Exchange your old Water RO",
+    categoryLabel: "Water RO",
+    typeLabel: "RO Type",
+    capacityLabel: "Capacity",
+    brands: COMMON_BRANDS,
+    types: ["Water RO / Purifier"],
+    capacities: [],
+    requiresCapacity: false,
+  },
+
+  chimney: {
+    title: "Exchange your old Chimney",
+    categoryLabel: "Kitchen Chimney",
+    typeLabel: "Chimney Type",
+    capacityLabel: "Capacity",
+    brands: COMMON_BRANDS,
+    types: ["Kitchen Chimney"],
+    capacities: [],
+    requiresCapacity: false,
+  },
+};
 
 const ageOptions = [
   "Less than 1 year",
@@ -146,16 +222,15 @@ const ageOptions = [
   "More than 6 years",
 ];
 
-// Update exchange values only from here.
-const FIXED_EXCHANGE_PRICES: Record<ExchangeCategory, number> = {
-  ac: 3000,
-  washing_machine: 2000,
-  cooler: 500,
-  refrigerator: 2500,
+const acCapacityByType: Record<string, string[]> = {
+  "Window AC": ["0.75 Ton", "1 Ton", "1.5 Ton", "2 Ton"],
+  "Split AC": ["0.75 Ton", "1 Ton", "1.5 Ton", "2 Ton", "2.5 Ton", "3 Ton"],
+  "Cassette AC": ["2.5 Ton", "3 Ton"],
 };
 
 function parsePrice(price: string | number) {
   if (typeof price === "number") return price;
+
   return Number(price.replace(/[^0-9.]/g, "")) || 0;
 }
 
@@ -167,8 +242,151 @@ function formatPrice(value: number) {
   }).format(value);
 }
 
-function calculateExchangeValue(category: ExchangeCategory) {
-  return FIXED_EXCHANGE_PRICES[category];
+function getCapacityOptions(
+  category: ExchangeCategory,
+  type: string
+): string[] {
+  if (category === "ac") {
+    return acCapacityByType[type] || [];
+  }
+
+  return applianceConfigs[category].capacities;
+}
+
+function calculateExchangeQuote(
+  category: ExchangeCategory,
+  type: string,
+  capacity: string
+): ExchangeQuote | null {
+  if (!type) return null;
+
+  if (category === "ac") {
+    if (
+      (type === "Window AC" || type === "Split AC") &&
+      capacity === "0.75 Ton"
+    ) {
+      return { amount: 3000 };
+    }
+
+    if (
+      (type === "Window AC" || type === "Split AC") &&
+      capacity === "1 Ton"
+    ) {
+      return { amount: 4500 };
+    }
+
+    if (
+      (type === "Window AC" || type === "Split AC") &&
+      capacity === "1.5 Ton"
+    ) {
+      return {
+        amount: 5500,
+        note:
+          "1.5 Ton AC exchange is listed as ₹5,500–₹6,000. This estimate starts at ₹5,500 and is subject to pickup verification.",
+      };
+    }
+
+    if (
+      (type === "Window AC" || type === "Split AC") &&
+      capacity === "2 Ton"
+    ) {
+      return { amount: 6500 };
+    }
+
+    if (
+      (type === "Split AC" || type === "Cassette AC") &&
+      capacity === "2.5 Ton"
+    ) {
+      return { amount: 6500 };
+    }
+
+    if (
+      (type === "Split AC" || type === "Cassette AC") &&
+      capacity === "3 Ton"
+    ) {
+      return { amount: 7000 };
+    }
+
+    return null;
+  }
+
+  if (category === "washing_machine") {
+    if (type === "Semi Automatic") {
+      return { amount: 1000 };
+    }
+
+    if (type === "Fully Automatic Top Load") {
+      return { amount: 1000 };
+    }
+
+    if (type === "Fully Automatic Front Load") {
+      return { amount: 1500 };
+    }
+
+    return null;
+  }
+
+  if (category === "refrigerator") {
+    if (type === "Direct Cool") {
+      return { amount: 1500 };
+    }
+
+    if (type === "Double Door") {
+      return {
+        amount: 1500,
+        note:
+          "Double Door refrigerator exchange is listed as ₹1,500–₹2,000. This estimate starts at ₹1,500 and is subject to pickup verification.",
+      };
+    }
+
+    if (type === "Side by Side") {
+      return { amount: 4000 };
+    }
+
+    return null;
+  }
+
+  if (category === "deep_freezer") {
+    if (capacity === "150L - 320L") {
+      return { amount: 1500 };
+    }
+
+    if (capacity === "Above 400L") {
+      return {
+        amount: 1500,
+        note:
+          "Deep Freezer above 400L is listed as ₹1,500–₹2,000. This estimate starts at ₹1,500 and is subject to pickup verification.",
+      };
+    }
+
+    return null;
+  }
+
+  if (category === "microwave") {
+    return { amount: 500 };
+  }
+
+  if (category === "geyser") {
+    return { amount: 500 };
+  }
+
+  if (category === "stabilizer") {
+    return { amount: 200 };
+  }
+
+  if (category === "water_dispenser") {
+    return { amount: 500 };
+  }
+
+  if (category === "water_ro") {
+    return { amount: 200 };
+  }
+
+  if (category === "chimney") {
+    return { amount: 200 };
+  }
+
+  return null;
 }
 
 export function ApplianceExchangeProduct({
@@ -176,7 +394,7 @@ export function ApplianceExchangeProduct({
   exchangeCategory,
   onExchangeChange,
 }: ApplianceExchangeProductProps) {
-  const price = parsePrice(productPrice);
+  const productAmount = parsePrice(productPrice);
   const config = applianceConfigs[exchangeCategory];
 
   const [open, setOpen] = useState(false);
@@ -199,32 +417,37 @@ export function ApplianceExchangeProduct({
   const [bodyCondition, setBodyCondition] = useState("");
   const [accessoriesAvailable, setAccessoriesAvailable] = useState("");
 
+  const capacityOptions = useMemo(() => {
+    return getCapacityOptions(exchangeCategory, type);
+  }, [exchangeCategory, type]);
+
   const isPincodeServiceable = useMemo(() => {
-    // Replace this with your actual pincode serviceability API later.
-    // Sample Delhi NCR prefixes.
     const allowedPrefixes = ["110", "121", "122", "201", "203", "301"];
+
     return allowedPrefixes.some((prefix) => pincode.startsWith(prefix));
   }, [pincode]);
 
-  const exchangeValue = useMemo(() => {
-    return calculateExchangeValue(exchangeCategory);
-  }, [exchangeCategory]);
+  const exchangeQuote = useMemo(() => {
+    return calculateExchangeQuote(exchangeCategory, type, capacity);
+  }, [exchangeCategory, type, capacity]);
 
-  const totalExchangeDiscount = exchangeValue;
-  const finalPrice = Math.max(price - totalExchangeDiscount, 0);
+  const exchangeValue = exchangeQuote?.amount || 0;
+  const finalPrice = Math.max(productAmount - exchangeValue, 0);
 
   const stepOneValid = Boolean(
     pincode.length === 6 &&
       isPincodeServiceable &&
       brand &&
       type &&
-      capacity &&
-      age
+      age &&
+      (!config.requiresCapacity || capacity) &&
+      exchangeQuote
   );
 
-  const stepTwoValid = Boolean(
-    workingCondition && bodyCondition && accessoriesAvailable
-  );
+  const stepTwoValid =
+    workingCondition === "yes" &&
+    bodyCondition === "yes" &&
+    accessoriesAvailable === "yes";
 
   const resetForm = () => {
     setStep(1);
@@ -238,36 +461,61 @@ export function ApplianceExchangeProduct({
     setAccessoriesAvailable("");
   };
 
+  const openExchangeModal = () => {
+    if (appliedExchange) {
+      setPincode(appliedExchange.pincode);
+      setBrand(appliedExchange.brand);
+      setType(appliedExchange.type);
+      setCapacity(
+        appliedExchange.capacity === "Not Applicable"
+          ? ""
+          : appliedExchange.capacity
+      );
+      setAge(appliedExchange.age);
+      setWorkingCondition(appliedExchange.workingCondition);
+      setBodyCondition(appliedExchange.bodyCondition);
+      setAccessoriesAvailable(appliedExchange.accessoriesAvailable);
+    } else {
+      resetForm();
+    }
+
+    setStep(1);
+    setOpen(true);
+  };
+
   const closeModal = () => {
     setOpen(false);
 
     if (!appliedExchange) {
       setPurchaseMode("without");
+      resetForm();
     }
-
-    resetForm();
   };
 
   const removeExchange = () => {
     setPurchaseMode("without");
     setAppliedExchange(null);
     onExchangeChange?.(null);
+    resetForm();
   };
 
   const applyExchange = () => {
+    if (!exchangeQuote) return;
+
     const exchange: AppliedApplianceExchange = {
       category: exchangeCategory,
       brand,
       type,
-      capacity,
+      capacity: capacity || "Not Applicable",
       age,
       pincode,
       workingCondition,
       bodyCondition,
       accessoriesAvailable,
       exchangeValue,
-      totalExchangeDiscount,
+      totalExchangeDiscount: exchangeValue,
       finalPrice,
+      quoteNote: exchangeQuote.note,
     };
 
     setPurchaseMode("with");
@@ -283,12 +531,12 @@ export function ApplianceExchangeProduct({
           <h3 className="text-base font-bold text-zinc-900">Buy Options</h3>
 
           <p className="mt-1 text-sm text-zinc-500">
-            Choose whether you want to buy this product with or without exchange.
+            Choose whether you want to buy this product with or without
+            exchange.
           </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          {/* Without Exchange Card */}
           <button
             type="button"
             onClick={removeExchange}
@@ -326,20 +574,16 @@ export function ApplianceExchangeProduct({
               <p className="text-xs font-medium text-zinc-500">Price</p>
 
               <p className="text-lg font-bold text-zinc-900">
-                {formatPrice(price)}
+                {formatPrice(productAmount)}
               </p>
             </div>
           </button>
 
-          {/* With Exchange Card */}
           <button
             type="button"
             onClick={() => {
               setPurchaseMode("with");
-
-              if (!appliedExchange) {
-                setOpen(true);
-              }
+              openExchangeModal();
             }}
             className={`rounded-2xl border p-4 text-left transition ${
               purchaseMode === "with"
@@ -372,39 +616,41 @@ export function ApplianceExchangeProduct({
               </span>
             </div>
 
-            {!appliedExchange ? (
-              <div className="mt-4">
-                <p className="text-xs font-medium text-green-700">
-                  Exchange available
-                </p>
+            <div className="mt-4">
+              {appliedExchange ? (
+                <>
+                  <p className="text-xs font-medium text-green-700">
+                    Exchange Applied
+                  </p>
 
-                <p className="text-sm font-bold text-zinc-900">
-                  Check exchange value
-                </p>
+                  <p className="text-lg font-bold text-zinc-900">
+                    {formatPrice(appliedExchange.finalPrice)}
+                  </p>
 
-                <p className="mt-1 text-xs font-semibold text-green-700">
-                  Exchange value: {formatPrice(exchangeValue)}
-                </p>
-              </div>
-            ) : (
-              <div className="mt-4">
-                <p className="text-xs font-medium text-green-700">
-                  Exchange Applied
-                </p>
+                  <p className="mt-1 text-xs font-semibold text-green-700">
+                    You save{" "}
+                    {formatPrice(appliedExchange.totalExchangeDiscount)}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs font-medium text-green-700">
+                    Exchange available
+                  </p>
 
-                <p className="text-lg font-bold text-zinc-900">
-                  {formatPrice(appliedExchange.finalPrice)}
-                </p>
+                  <p className="text-sm font-bold text-zinc-900">
+                    Select old appliance details
+                  </p>
 
-                <p className="mt-1 text-xs font-semibold text-green-700">
-                  You save {formatPrice(appliedExchange.totalExchangeDiscount)}
-                </p>
-              </div>
-            )}
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Exchange value will be shown after selection.
+                  </p>
+                </>
+              )}
+            </div>
           </button>
         </div>
 
-        {/* Exchange Applied Summary */}
         {appliedExchange && purchaseMode === "with" && (
           <div className="mt-5 space-y-4 rounded-xl bg-zinc-50 p-4">
             <div className="flex items-start justify-between gap-4">
@@ -414,17 +660,16 @@ export function ApplianceExchangeProduct({
                 </h4>
 
                 <p className="mt-1 text-sm text-zinc-500">
-                  {appliedExchange.brand} {appliedExchange.type},{" "}
-                  {appliedExchange.capacity}
+                  {appliedExchange.brand} {appliedExchange.type}
+                  {appliedExchange.capacity !== "Not Applicable"
+                    ? `, ${appliedExchange.capacity}`
+                    : ""}
                 </p>
               </div>
 
               <button
                 type="button"
-                onClick={() => {
-                  setPurchaseMode("with");
-                  setOpen(true);
-                }}
+                onClick={openExchangeModal}
                 className="text-sm font-bold text-blue-700 hover:underline"
               >
                 Change
@@ -432,7 +677,10 @@ export function ApplianceExchangeProduct({
             </div>
 
             <div className="space-y-2 text-sm">
-              <SummaryRow label="Product Price" value={formatPrice(price)} />
+              <SummaryRow
+                label="Product Price"
+                value={formatPrice(productAmount)}
+              />
 
               <SummaryRow
                 label="Exchange Value"
@@ -447,6 +695,12 @@ export function ApplianceExchangeProduct({
               />
             </div>
 
+            {appliedExchange.quoteNote && (
+              <p className="rounded-lg bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">
+                {appliedExchange.quoteNote}
+              </p>
+            )}
+
             <button
               type="button"
               onClick={removeExchange}
@@ -454,11 +708,6 @@ export function ApplianceExchangeProduct({
             >
               Remove Exchange
             </button>
-
-            <p className="text-xs leading-relaxed text-zinc-500">
-              Final exchange approval is subject to verification during pickup or
-              delivery. If details do not match, the exchange can be rejected.
-            </p>
           </div>
         )}
       </div>
@@ -508,8 +757,8 @@ export function ApplianceExchangeProduct({
 
                     <input
                       value={pincode}
-                      onChange={(e) =>
-                        setPincode(e.target.value.replace(/\D/g, ""))
+                      onChange={(event) =>
+                        setPincode(event.target.value.replace(/\D/g, ""))
                       }
                       maxLength={6}
                       placeholder="Example: 110059"
@@ -536,22 +785,28 @@ export function ApplianceExchangeProduct({
                       label="Brand"
                       value={brand}
                       onChange={setBrand}
-                      options={[...config.brands]}
+                      options={config.brands}
                     />
 
                     <SelectField
                       label={config.typeLabel}
                       value={type}
-                      onChange={setType}
-                      options={[...config.types]}
+                      onChange={(value) => {
+                        setType(value);
+                        setCapacity("");
+                      }}
+                      options={config.types}
                     />
 
-                    <SelectField
-                      label={config.capacityLabel}
-                      value={capacity}
-                      onChange={setCapacity}
-                      options={[...config.capacities]}
-                    />
+                    {config.requiresCapacity && (
+                      <SelectField
+                        label={config.capacityLabel}
+                        value={capacity}
+                        onChange={setCapacity}
+                        options={capacityOptions}
+                        disabled={!type}
+                      />
+                    )}
 
                     <SelectField
                       label="Product Age"
@@ -560,6 +815,33 @@ export function ApplianceExchangeProduct({
                       options={ageOptions}
                     />
                   </div>
+
+                  {type &&
+                    (!config.requiresCapacity || capacity) &&
+                    !exchangeQuote && (
+                      <p className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">
+                        Exchange pricing is not available for this product type
+                        and capacity.
+                      </p>
+                    )}
+
+                  {exchangeQuote && (
+                    <div className="rounded-xl bg-green-50 p-4">
+                      <p className="text-sm font-medium text-green-700">
+                        Estimated Exchange Value
+                      </p>
+
+                      <p className="mt-1 text-2xl font-bold text-zinc-900">
+                        {formatPrice(exchangeQuote.amount)}
+                      </p>
+
+                      {exchangeQuote.note && (
+                        <p className="mt-2 text-xs leading-relaxed text-amber-800">
+                          {exchangeQuote.note}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   <button
                     type="button"
@@ -576,49 +858,29 @@ export function ApplianceExchangeProduct({
                 <div className="space-y-5">
                   <ConditionQuestion
                     title={`Is your old ${config.categoryLabel.toLowerCase()} in working condition?`}
-                    description="The product should power on and perform its basic function."
+                    description="The appliance must power on and perform its basic function."
                     value={workingCondition}
                     onChange={setWorkingCondition}
                   />
 
                   <ConditionQuestion
                     title="Is the body in acceptable condition?"
-                    description="The product should not be completely damaged, broken, burnt, or physically unusable."
+                    description="The appliance should not be burnt, broken, heavily damaged, or unusable."
                     value={bodyCondition}
                     onChange={setBodyCondition}
                   />
 
                   <ConditionQuestion
-                    title={
-                      exchangeCategory === "ac"
-                        ? "Are remote and both AC units available?"
-                        : exchangeCategory === "refrigerator"
-                        ? "Are shelves, trays, and doors in usable condition?"
-                        : "Are main accessories available?"
-                    }
-                    description={
-                      exchangeCategory === "ac"
-                        ? "For Split AC, both indoor and outdoor units should be available for pickup."
-                        : exchangeCategory === "refrigerator"
-                        ? "Shelves, trays, and doors should be available and in usable condition during pickup."
-                        : "Required accessories should be available during pickup."
-                    }
+                    title="Are required accessories available?"
+                    description="Required accessories should be available during pickup."
                     value={accessoriesAvailable}
                     onChange={setAccessoriesAvailable}
                   />
 
                   {exchangeCategory === "ac" && (
                     <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
-                      Old AC should be uninstalled and kept ready before pickup.
-                      For Split AC, both indoor and outdoor units are required.
-                    </div>
-                  )}
-
-                  {exchangeCategory === "refrigerator" && (
-                    <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
-                      Old refrigerator should be emptied, defrosted, and kept
-                      ready before pickup. Shelves, trays, and doors should be
-                      available.
+                      Old AC should be uninstalled and ready before pickup. For
+                      Split AC, both indoor and outdoor units are required.
                     </div>
                   )}
 
@@ -647,11 +909,11 @@ export function ApplianceExchangeProduct({
                 <div className="space-y-5">
                   <div className="rounded-2xl bg-green-50 p-5 text-center">
                     <h3 className="text-2xl font-bold text-green-700">
-                      Hurray!
+                      Exchange Eligible
                     </h3>
 
                     <p className="mt-1 text-sm text-zinc-600">
-                      Your exchange value
+                      Your estimated exchange value
                     </p>
 
                     <div className="mt-4 text-3xl font-bold text-zinc-900">
@@ -667,13 +929,13 @@ export function ApplianceExchangeProduct({
                     <div className="space-y-2">
                       <SummaryRow label="Brand" value={brand} />
                       <SummaryRow label="Type" value={type} />
-                      <SummaryRow label="Capacity" value={capacity} />
-                      <SummaryRow label="Age" value={age} />
 
-                      <SummaryRow
-                        label="Working Condition"
-                        value={workingCondition === "yes" ? "Yes" : "No"}
-                      />
+                      {capacity && (
+                        <SummaryRow label="Capacity" value={capacity} />
+                      )}
+
+                      <SummaryRow label="Age" value={age} />
+                      <SummaryRow label="Working Condition" value="Yes" />
                     </div>
                   </div>
 
@@ -684,7 +946,7 @@ export function ApplianceExchangeProduct({
 
                     <SummaryRow
                       label="New Product Price"
-                      value={formatPrice(price)}
+                      value={formatPrice(productAmount)}
                     />
 
                     <SummaryRow
@@ -700,31 +962,11 @@ export function ApplianceExchangeProduct({
                     />
                   </div>
 
-                  <div className="rounded-xl bg-zinc-50 p-4 text-xs leading-relaxed text-zinc-600">
-                    <strong>Exchange can be rejected if:</strong>
-
-                    <ul className="mt-2 list-disc space-y-1 pl-5">
-                      <li>Brand, type, or capacity does not match.</li>
-                      <li>
-                        Product condition does not match the selected details.
-                      </li>
-                      <li>Old product is not ready for pickup.</li>
-
-                      {exchangeCategory === "ac" && (
-                        <li>
-                          Old AC is not uninstalled or indoor/outdoor units are
-                          missing.
-                        </li>
-                      )}
-
-                      {exchangeCategory === "refrigerator" && (
-                        <li>
-                          Shelves, trays, or doors are missing, damaged, or not
-                          in usable condition.
-                        </li>
-                      )}
-                    </ul>
-                  </div>
+                  {exchangeQuote?.note && (
+                    <div className="rounded-xl bg-amber-50 p-4 text-xs leading-relaxed text-amber-800">
+                      {exchangeQuote.note}
+                    </div>
+                  )}
 
                   <div className="flex gap-3">
                     <button
@@ -758,11 +1000,13 @@ function SelectField({
   value,
   onChange,
   options,
+  disabled = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   options: string[];
+  disabled?: boolean;
 }) {
   return (
     <div>
@@ -772,8 +1016,9 @@ function SelectField({
 
       <select
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border px-4 py-3 text-sm outline-none focus:border-zinc-900"
+        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
+        className="w-full rounded-xl border px-4 py-3 text-sm outline-none focus:border-zinc-900 disabled:cursor-not-allowed disabled:bg-zinc-100"
       >
         <option value="">Select {label}</option>
 
@@ -836,8 +1081,8 @@ function ConditionQuestion({
 function SummaryRow({
   label,
   value,
-  strong,
-  green,
+  strong = false,
+  green = false,
 }: {
   label: string;
   value: string;
@@ -868,47 +1113,69 @@ function SummaryRow({
 export function getExchangeCategoryFromProduct(
   product: any
 ): ExchangeCategory | null {
-  const categoryText = [
-    product?.name,
-    ...(product?.categories || []).map(
-      (cat: any) => `${cat.name || ""} ${cat.slug || ""}`
-    ),
-  ]
+  const categories = Array.isArray(product?.categories)
+    ? product.categories
+    : [];
+
+  const categoryText = categories.map((category: any) => {
+    return `${category?.name || ""} ${category?.slug || ""}`;
+  });
+
+  const searchableText = [product?.name || "", ...categoryText]
     .join(" ")
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/[-_/]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
   if (
-    categoryText.includes("air conditioner") ||
-    categoryText.includes("air-conditioner") ||
-    categoryText.includes("split ac") ||
-    categoryText.includes("window ac") ||
-    categoryText.includes(" ac ")
+    /\b(deep freezer|deep freezers|deepfreezer|chest freezer|vertical freezer)\b/.test(
+      searchableText
+    )
+  ) {
+    return "deep_freezer";
+  }
+
+  if (
+    /\b(air conditioner|air conditioners|split ac|window ac|cassette ac)\b/.test(
+      searchableText
+    )
   ) {
     return "ac";
   }
 
-  if (
-    categoryText.includes("washing machine") ||
-    categoryText.includes("washing-machine") ||
-    categoryText.includes("washer")
-  ) {
+  if (/\b(washing machine|washing machines|washer)\b/.test(searchableText)) {
     return "washing_machine";
   }
 
-  if (
-    categoryText.includes("air cooler") ||
-    categoryText.includes("air-cooler") ||
-    categoryText.includes("cooler")
-  ) {
-    return "cooler";
+  if (/\b(microwave|microwave oven)\b/.test(searchableText)) {
+    return "microwave";
+  }
+
+  if (/\b(geyser|water heater)\b/.test(searchableText)) {
+    return "geyser";
+  }
+
+  if (/\bstabilizer\b/.test(searchableText)) {
+    return "stabilizer";
+  }
+
+  if (/\b(water dispenser|dispenser)\b/.test(searchableText)) {
+    return "water_dispenser";
+  }
+
+  if (/\b(water ro|ro purifier|water purifier)\b/.test(searchableText)) {
+    return "water_ro";
+  }
+
+  if (/\b(kitchen chimney|chimney)\b/.test(searchableText)) {
+    return "chimney";
   }
 
   if (
-    categoryText.includes("refrigerator") ||
-    categoryText.includes("fridge") ||
-    categoryText.includes("single door") ||
-    categoryText.includes("double door") ||
-    categoryText.includes("side by side")
+    /\b(refrigerator|refrigerators|fridge|direct cool|double door|side by side)\b/.test(
+      searchableText
+    )
   ) {
     return "refrigerator";
   }

@@ -24,7 +24,7 @@ export default async function CategoryProductListRow({
       {products.map((product: any) => (
         <Link 
           key={product.id} 
-          href={`/product/${product.slug}`}
+          href={`/shop/${product.slug}`}
           className="group flex flex-col sm:flex-row gap-6 items-center p-4 border border-zinc-100 rounded-xl hover:border-red-700 transition-shadow"
         >
           {/* Product Image */}

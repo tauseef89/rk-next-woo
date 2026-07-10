@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ProductGallery,
@@ -29,9 +29,11 @@ import {
   AppliedApplianceExchange,
   getExchangeCategoryFromProduct,
 } from "@/components/shop/appliance-exchange-product";
+
 import {
   ExtendedWarranty,
   AppliedExtendedWarranty,
+  getWarrantyCategoryFromProduct,
 } from "@/components/shop/extended-warranty";
 
 interface ProductViewProps {
@@ -40,27 +42,35 @@ interface ProductViewProps {
   reviews: ProductReview[];
 }
 
-export function ProductView({ product, variations, reviews }: ProductViewProps) {
+export function ProductView({
+  product,
+  variations,
+  reviews,
+}: ProductViewProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Exchange state
   const [exchange, setExchange] = useState<AppliedApplianceExchange | null>(
     null
   );
 
   const [extendedWarranty, setExtendedWarranty] =
-  useState<AppliedExtendedWarranty | null>(null);
+    useState<AppliedExtendedWarranty | null>(null);
 
-  // Auto-detect exchange category: AC, Washing Machine, Cooler, Refrigerator
+  // Detect exchange-compatible category.
   const exchangeCategory = getExchangeCategoryFromProduct(product);
 
-  // 1. Define the default/initial variation first
+  // Detect warranty category from product name and WooCommerce categories.
+  const warrantyCategory = getWarrantyCategoryFromProduct(product);
+
   const initialVariation = useMemo(() => {
     if (!variations || variations.length === 0) return null;
-    return variations.find((v) => v.stock_status === "instock") || variations[0];
+
+    return (
+      variations.find((variation) => variation.stock_status === "instock") ||
+      variations[0]
+    );
   }, [variations]);
 
-  // 2. Initialize state with that variation
   const [selectedVariation, setSelectedVariation] =
     useState<ProductVariation | null>(initialVariation);
 
@@ -81,15 +91,14 @@ export function ProductView({ product, variations, reviews }: ProductViewProps) 
     ? selectedVariation.on_sale
     : initialVariation?.on_sale || product.on_sale;
 
-  // Sync Gallery Images: Puts variation image first
   const displayImages = useMemo(() => {
     if (selectedVariation?.image?.src) {
-      const existingImg = product.images.find(
-        (img) => img.src === selectedVariation.image?.src
+      const existingImage = product.images.find(
+        (image) => image.src === selectedVariation.image?.src
       );
 
-      const varImg: ProductImage = existingImg
-        ? existingImg
+      const variationImage: ProductImage = existingImage
+        ? existingImage
         : {
             ...product.images[0],
             id: selectedVariation.image.id,
@@ -97,8 +106,11 @@ export function ProductView({ product, variations, reviews }: ProductViewProps) 
             alt: selectedVariation.image.alt || product.name,
           };
 
-      const filteredBase = product.images.filter((img) => img.src !== varImg.src);
-      return [varImg, ...filteredBase];
+      const remainingImages = product.images.filter(
+        (image) => image.src !== variationImage.src
+      );
+
+      return [variationImage, ...remainingImages];
     }
 
     return product.images;
@@ -108,8 +120,7 @@ export function ProductView({ product, variations, reviews }: ProductViewProps) 
 
   return (
     <div className="space-y-16">
-      <div className="grid lg:grid-cols-2 gap-12">
-        {/* 1. Gallery */}
+      <div className="grid gap-12 lg:grid-cols-2">
         <ProductGallery
           key={selectedVariation?.id || "base"}
           images={displayImages}
@@ -122,26 +133,25 @@ export function ProductView({ product, variations, reviews }: ProductViewProps) 
               {product.name}
             </h1>
 
-            {/* Brand Link */}
             {brand && (
               <Link
                 href={`/shop?product_brand=${brand.id}`}
-                className="inline-block text-sm font-semibold text-blue-700 underline uppercase tracking-widest"
+                className="inline-block text-sm font-semibold uppercase tracking-widest text-blue-700 underline"
               >
                 Visit the {brand.name} store
               </Link>
             )}
           </div>
 
-          {/* Star Rating Summary */}
-          <div className="flex items-center gap-3 mt-2">
+          <div className="mt-2 flex items-center gap-3">
             <StarRating rating={product.average_rating} className="m-0" />
 
             <Link
               href="#reviews"
-              className="text-sm font-semibold text-blue-700 hover:underline transition-colors"
-              onClick={(e) => {
-                e.preventDefault();
+              className="text-sm font-semibold text-blue-700 transition-colors hover:underline"
+              onClick={(event) => {
+                event.preventDefault();
+
                 document
                   .getElementById("reviews")
                   ?.scrollIntoView({ behavior: "smooth" });
@@ -160,28 +170,26 @@ export function ProductView({ product, variations, reviews }: ProductViewProps) 
               size="md"
             />
 
-            <span className="text-sm text-muted-foreground ml-2">
+            <span className="ml-2 text-sm text-muted-foreground">
               (Incl. of all taxes)
             </span>
           </div>
 
+          {/* <p className="text-[15px] font-bold text-blue-700">Buy now, pay in easy EMIs at the checkout.</p> */}
+
           <EMIOptions price={currentPrice} />
 
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <EarnPoints
-                price={currentPrice}
-                earnRate={0.01}
-                redemptionValue={1}
-              />
-            </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <EarnPoints
+              price={currentPrice}
+              earnRate={0.01}
+              redemptionValue={1}
+            />
 
-            <div>
-              <PincodeChecker />
-            </div>
+            <PincodeChecker />
           </div>
 
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <StockBadge product={selectedVariation || product} showQuantity />
 
             <div className="space-y-2">
@@ -189,7 +197,6 @@ export function ProductView({ product, variations, reviews }: ProductViewProps) 
             </div>
           </div>
 
-          {/* Appliance Exchange Feature */}
           {exchangeCategory && (
             <ApplianceExchangeProduct
               productPrice={currentPrice}
@@ -198,23 +205,25 @@ export function ProductView({ product, variations, reviews }: ProductViewProps) 
             />
           )}
 
-          <ExtendedWarranty
-  productPrice={currentPrice}
-  selected={Boolean(extendedWarranty)}
-  onChange={setExtendedWarranty}
-/>
+          {warrantyCategory && (
+            <ExtendedWarranty
+              productPrice={currentPrice}
+              warrantyCategory={warrantyCategory}
+              selected={Boolean(extendedWarranty)}
+              onChange={setExtendedWarranty}
+            />
+          )}
 
           <Separator />
 
-          {/* Variation Selector */}
           {product.type === "variable" && (
             <VariationSelector
               product={product}
               variations={variations}
-              onVariationChange={(v) => {
-                setSelectedVariation(v);
+              onVariationChange={(variation) => {
+                setSelectedVariation(variation);
 
-                // Reset exchange when variation changes, because price may change
+                // Reset both optional services when variation price changes.
                 setExchange(null);
                 setExtendedWarranty(null);
               }}
@@ -223,10 +232,10 @@ export function ProductView({ product, variations, reviews }: ProductViewProps) 
 
           <div className="pt-4">
             <AddToCartButton
-               product={product}
-    variation={selectedVariation}
-    exchange={exchange}
-    extendedWarranty={extendedWarranty}
+              product={product}
+              variation={selectedVariation}
+              exchange={exchange}
+              extendedWarranty={extendedWarranty}
             />
           </div>
 
@@ -237,8 +246,7 @@ export function ProductView({ product, variations, reviews }: ProductViewProps) 
               <Prose className="max-w-none">
                 <div
                   className={cn(
-                    "text-[14px] leading-relaxed text-muted-foreground transition-all",
-                    "product_short-description prose-sm prose-slate",
+                    "product_short-description prose-sm prose-slate text-[14px] leading-relaxed text-muted-foreground transition-all",
                     !isExpanded && "line-clamp-3"
                   )}
                   dangerouslySetInnerHTML={{
@@ -248,21 +256,21 @@ export function ProductView({ product, variations, reviews }: ProductViewProps) 
               </Prose>
 
               <button
+                type="button"
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="text-xs font-bold uppercase tracking-widest text-primary hover:underline mt-1"
+                className="mt-1 text-xs font-bold uppercase tracking-widest text-primary hover:underline"
               >
                 {isExpanded ? "Show Less" : "Read More"}
               </button>
             </div>
           )}
 
-          {/* Product Meta */}
-          <div className="space-y-3 text-sm pt-2">
+          <div className="space-y-3 pt-2 text-sm">
             {(selectedVariation?.sku || product.sku) && (
               <p className="flex items-center gap-2">
-                <span className="text-muted-foreground font-medium">SKU:</span>
+                <span className="font-medium text-muted-foreground">SKU:</span>
 
-                <span className="text-foreground font-mono bg-muted px-2 py-0.5 rounded text-[11px] uppercase tracking-wider">
+                <span className="rounded bg-muted px-2 py-0.5 font-mono text-[11px] uppercase tracking-wider text-foreground">
                   {selectedVariation?.sku || product.sku}
                 </span>
               </p>
@@ -270,10 +278,8 @@ export function ProductView({ product, variations, reviews }: ProductViewProps) 
 
             {product.tags.length > 0 && (
               <p>
-                <span className="text-muted-foreground font-medium">
-                  Tags:
-                </span>{" "}
-                {product.tags.map((tag, i) => (
+                <span className="font-medium text-muted-foreground">Tags:</span>{" "}
+                {product.tags.map((tag, index) => (
                   <span key={tag.id}>
                     <Link
                       href={`/shop?tag=${tag.slug}`}
@@ -281,7 +287,8 @@ export function ProductView({ product, variations, reviews }: ProductViewProps) 
                     >
                       {tag.name}
                     </Link>
-                    {i < product.tags.length - 1 && ", "}
+
+                    {index < product.tags.length - 1 && ", "}
                   </span>
                 ))}
               </p>

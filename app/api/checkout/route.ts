@@ -400,7 +400,7 @@ export async function POST(request: NextRequest) {
           },
           integration_mode: "REDIRECT",
           pre_auth: false,
-          allowed_payment_methods: ["CARD", "UPI", "NETBANKING", "WALLET"],
+          allowed_payment_methods: ["CARD", "UPI", "NETBANKING", "WALLET", "CREDIT_EMI", "DEBIT_EMI"],
           notes: `WooCommerce Order #${order.id}`,
           callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/callback/pinelabs?woo_order_id=${order.id}&merchant_ref=${merchantOrderReference}`,
           failure_callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/failed`,

@@ -6,15 +6,36 @@ import {
   useEffect,
   useState,
   useCallback,
-  ReactNode,
+  type ReactNode,
 } from "react";
 
 import type { CartItem, CartTotals } from "@/lib/woocommerce.d";
 
 const CART_STORAGE_KEY = "woo-cart";
 
-type CartExchange = {
-  category: "ac" | "washing_machine" | "cooler" | "refrigerator";
+export type CartExchangeCategory =
+  | "ac"
+  | "washing_machine"
+  | "refrigerator"
+  | "deep_freezer"
+  | "microwave"
+  | "geyser"
+  | "stabilizer"
+  | "water_dispenser"
+  | "water_ro"
+  | "chimney";
+
+export type CartWarrantyCategory =
+  | "ac"
+  | "tv"
+  | "refrigerator"
+  | "washing-machine"
+  | "home-entertainment"
+  | "microwave"
+  | "air-cooler";
+
+export type CartExchange = {
+  category: CartExchangeCategory;
   brand: string;
   type: string;
   capacity: string;
@@ -26,15 +47,22 @@ type CartExchange = {
   exchangeValue: number;
   totalExchangeDiscount: number;
   finalPrice: number;
+  quoteNote?: string;
 };
 
-type CartExtendedWarranty = {
+export type CartExtendedWarranty = {
   title: string;
-  percentage: number;
   price: number;
+
+  // New slab-based warranty fields
+  category?: CartWarrantyCategory;
+  planYears?: 1 | 2 | 3 | 4;
+
+  // Supports old items already stored in localStorage
+  percentage?: number;
 };
 
-type AppCartItem = CartItem & {
+export type AppCartItem = CartItem & {
   originalPrice?: string | number;
 
   exchangeApplied?: boolean;
@@ -76,18 +104,24 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 function parseCartPrice(price: string | number | undefined | null) {
   if (!price) return 0;
-  if (typeof price === "number") return price;
+
+  if (typeof price === "number") {
+    return price;
+  }
 
   return Number(price.replace(/[^0-9.]/g, "")) || 0;
 }
 
 function calculateTotals(items: AppCartItem[]): CartTotals {
-  const subtotal = items.reduce((sum, item) => {
-    const price = parseCartPrice(item.price);
-    return sum + price * item.quantity;
+  const subtotal = items.reduce((total, item) => {
+    const unitPrice = parseCartPrice(item.price);
+
+    return total + unitPrice * item.quantity;
   }, 0);
 
-  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const itemCount = items.reduce((total, item) => {
+    return total + item.quantity;
+  }, 0);
 
   return {
     subtotal: subtotal.toFixed(2),
@@ -98,7 +132,16 @@ function calculateTotals(items: AppCartItem[]): CartTotals {
   };
 }
 
-function getCartLineKey(item: AppCartItem): string {
+/*
+  Use this same exported function in:
+  - cart page
+  - cart drawer
+  - checkout page
+  - add-to-cart button
+
+  Do not create separate versions of this function in other files.
+*/
+export function getCartLineKey(item: AppCartItem): string {
   const exchangeKey =
     item.exchangeApplied && item.exchange
       ? [
@@ -118,8 +161,10 @@ function getCartLineKey(item: AppCartItem): string {
     item.extendedWarrantyApplied && item.extendedWarranty
       ? [
           "with-warranty",
-          item.extendedWarranty.title,
-          item.extendedWarranty.percentage,
+          item.extendedWarranty.category || "unknown-category",
+          item.extendedWarranty.planYears ||
+            item.extendedWarranty.title ||
+            "unknown-plan",
           item.extendedWarranty.price,
         ].join("-")
       : "without-warranty";
@@ -142,64 +187,72 @@ export function CartProvider({ children }: CartProviderProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load cart from localStorage on mount
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(CART_STORAGE_KEY);
+      const storedCart = localStorage.getItem(CART_STORAGE_KEY);
 
-      if (stored) {
-        const items: AppCartItem[] = JSON.parse(stored);
+      if (storedCart) {
+        const savedItems = JSON.parse(storedCart) as AppCartItem[];
 
         setCart({
-          items,
-          totals: calculateTotals(items),
+          items: savedItems,
+          totals: calculateTotals(savedItems),
         });
       }
     } catch (error) {
-      console.error("Failed to load cart from storage:", error);
+      console.error("Failed to load cart from localStorage:", error);
+
+      localStorage.removeItem(CART_STORAGE_KEY);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Save cart to localStorage whenever it changes
   useEffect(() => {
-    if (!isLoading) {
-      try {
-        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart.items));
-      } catch (error) {
-        console.error("Failed to save cart to storage:", error);
-      }
+    if (isLoading) return;
+
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart.items));
+    } catch (error) {
+      console.error("Failed to save cart to localStorage:", error);
     }
   }, [cart.items, isLoading]);
 
-  const openCart = useCallback(() => setIsOpen(true), []);
-  const closeCart = useCallback(() => setIsOpen(false), []);
-  const toggleCart = useCallback(() => setIsOpen((prev) => !prev), []);
+  const openCart = useCallback(() => {
+    setIsOpen(true);
+  }, []);
+
+  const closeCart = useCallback(() => {
+    setIsOpen(false);
+  }, []);
+
+  const toggleCart = useCallback(() => {
+    setIsOpen((previous) => !previous);
+  }, []);
 
   const addItem = useCallback(async (newItem: AppCartItem) => {
-    setCart((prev) => {
+    setCart((previousCart) => {
       const newItemKey = getCartLineKey(newItem);
 
-      const existingIndex = prev.items.findIndex((item) => {
-        return getCartLineKey(item) === newItemKey;
-      });
+      const existingItemIndex = previousCart.items.findIndex(
+        (item) => getCartLineKey(item) === newItemKey
+      );
 
       let newItems: AppCartItem[];
 
-      if (existingIndex >= 0) {
-        newItems = prev.items.map((item, index) => {
-          if (index === existingIndex) {
-            return {
-              ...item,
-              quantity: item.quantity + newItem.quantity,
-            };
+      if (existingItemIndex >= 0) {
+        newItems = previousCart.items.map((item, index) => {
+          if (index !== existingItemIndex) {
+            return item;
           }
 
-          return item;
+          return {
+            ...item,
+            quantity: item.quantity + newItem.quantity,
+          };
         });
       } else {
-        newItems = [...prev.items, newItem];
+        newItems = [...previousCart.items, newItem];
       }
 
       return {
@@ -213,14 +266,15 @@ export function CartProvider({ children }: CartProviderProps) {
 
   const removeItem = useCallback(
     (productId: number, variationId?: number, cartLineKey?: string) => {
-      setCart((prev) => {
-        const newItems = prev.items.filter((item) => {
+      setCart((previousCart) => {
+        const newItems = previousCart.items.filter((item) => {
           if (cartLineKey) {
             return getCartLineKey(item) !== cartLineKey;
           }
 
           return !(
-            item.productId === productId && item.variationId === variationId
+            item.productId === productId &&
+            item.variationId === variationId
           );
         });
 
@@ -245,20 +299,21 @@ export function CartProvider({ children }: CartProviderProps) {
         return;
       }
 
-      setCart((prev) => {
-        const newItems = prev.items.map((item) => {
-          const isSameItem = cartLineKey
+      setCart((previousCart) => {
+        const newItems = previousCart.items.map((item) => {
+          const isTargetItem = cartLineKey
             ? getCartLineKey(item) === cartLineKey
-            : item.productId === productId && item.variationId === variationId;
+            : item.productId === productId &&
+              item.variationId === variationId;
 
-          if (isSameItem) {
-            return {
-              ...item,
-              quantity,
-            };
+          if (!isTargetItem) {
+            return item;
           }
 
-          return item;
+          return {
+            ...item,
+            quantity,
+          };
         });
 
         return {
@@ -275,6 +330,8 @@ export function CartProvider({ children }: CartProviderProps) {
       items: [],
       totals: calculateTotals([]),
     });
+
+    localStorage.removeItem(CART_STORAGE_KEY);
   }, []);
 
   const getItemCount = useCallback(() => {
@@ -305,7 +362,7 @@ export function CartProvider({ children }: CartProviderProps) {
 export function useCart() {
   const context = useContext(CartContext);
 
-  if (context === undefined) {
+  if (!context) {
     throw new Error("useCart must be used within a CartProvider");
   }
 

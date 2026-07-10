@@ -1,4 +1,8 @@
-type TaxonomyBannerType = "category" | "tag";
+// components/shop/taxonomy-banner-image.tsx
+
+import HomeHero from "@/components/home-comp/home-hero";
+
+type TaxonomyBannerType = "category" | "tag" | "brand";
 
 interface TaxonomyBannerImageProps {
   type: TaxonomyBannerType;
@@ -13,7 +17,13 @@ function getWordPressUrl() {
   ).replace(/\/$/, "");
 }
 
-async function getMediaById(mediaId: number) {
+function getTaxonomyEndpoint(type: TaxonomyBannerType) {
+  if (type === "category") return "product_cat";
+  if (type === "tag") return "product_tag";
+  return "product_brand";
+}
+
+async function getMediaById(mediaId: number): Promise<string> {
   const wpUrl = getWordPressUrl();
 
   if (!wpUrl || !mediaId) return "";
@@ -37,29 +47,38 @@ async function getMediaById(mediaId: number) {
   }
 }
 
-async function normalizeAcfImage(image: any): Promise<string> {
+async function normalizeAcfImage(image: unknown): Promise<string> {
   if (!image) return "";
 
-  // ACF image array
+  // ACF image ID as number
+  if (typeof image === "number") {
+    return await getMediaById(image);
+  }
+
+  // ACF image URL or numeric string ID
+  if (typeof image === "string") {
+    const trimmedImage = image.trim();
+
+    if (/^\d+$/.test(trimmedImage)) {
+      return await getMediaById(Number(trimmedImage));
+    }
+
+    return trimmedImage;
+  }
+
+  // ACF image object/array
   if (typeof image === "object") {
+    const img = image as any;
+
     return (
-      image?.url ||
-      image?.source_url ||
-      image?.sizes?.full ||
-      image?.sizes?.large ||
-      image?.sizes?.medium_large ||
+      img?.url ||
+      img?.source_url ||
+      img?.sizes?.full ||
+      img?.sizes?.large ||
+      img?.sizes?.medium_large ||
+      img?.sizes?.medium ||
       ""
     );
-  }
-
-  // ACF image URL
-  if (typeof image === "string") {
-    return image;
-  }
-
-  // ACF image ID
-  if (typeof image === "number") {
-    return getMediaById(image);
   }
 
   return "";
@@ -70,14 +89,15 @@ async function getTermBySlug(type: TaxonomyBannerType, slug: string) {
 
   if (!wpUrl || !slug) return null;
 
-  const taxonomyEndpoint =
-    type === "category" ? "product_cat" : "product_tag";
+  const taxonomyEndpoint = getTaxonomyEndpoint(type);
 
   try {
+    const cleanSlug = decodeURIComponent(slug);
+
     const res = await fetch(
       `${wpUrl}/wp-json/wp/v2/${taxonomyEndpoint}?slug=${encodeURIComponent(
-        slug
-      )}&_fields=id,slug,parent,acf`,
+        cleanSlug
+      )}&_fields=id,name,slug,parent,acf`,
       {
         next: {
           revalidate: 60,
@@ -94,14 +114,16 @@ async function getTermBySlug(type: TaxonomyBannerType, slug: string) {
   }
 }
 
-async function getCategoryById(categoryId: number) {
+async function getTermById(type: TaxonomyBannerType, termId: number) {
   const wpUrl = getWordPressUrl();
 
-  if (!wpUrl || !categoryId) return null;
+  if (!wpUrl || !termId) return null;
+
+  const taxonomyEndpoint = getTaxonomyEndpoint(type);
 
   try {
     const res = await fetch(
-      `${wpUrl}/wp-json/wp/v2/product_cat/${categoryId}?_fields=id,slug,parent,acf`,
+      `${wpUrl}/wp-json/wp/v2/${taxonomyEndpoint}/${termId}?_fields=id,name,slug,parent,acf`,
       {
         next: {
           revalidate: 60,
@@ -117,14 +139,16 @@ async function getCategoryById(categoryId: number) {
   }
 }
 
-async function getChildCategories(parentId: number) {
+async function getChildTerms(type: TaxonomyBannerType, parentId: number) {
   const wpUrl = getWordPressUrl();
 
   if (!wpUrl || !parentId) return [];
 
+  const taxonomyEndpoint = getTaxonomyEndpoint(type);
+
   try {
     const res = await fetch(
-      `${wpUrl}/wp-json/wp/v2/product_cat?parent=${parentId}&per_page=100&_fields=id,slug,parent,acf`,
+      `${wpUrl}/wp-json/wp/v2/${taxonomyEndpoint}?parent=${parentId}&per_page=100&_fields=id,name,slug,parent,acf`,
       {
         next: {
           revalidate: 60,
@@ -142,33 +166,42 @@ async function getChildCategories(parentId: number) {
 }
 
 async function getImageFromTerm(term: any): Promise<string> {
-  if (!term?.acf?.banner_image) return "";
-  return await normalizeAcfImage(term.acf.banner_image);
+  const bannerImage = term?.acf?.banner_image;
+
+  if (!bannerImage) return "";
+
+  return await normalizeAcfImage(bannerImage);
 }
 
-async function getCategoryBannerWithFallback(slug: string): Promise<string> {
-  const currentCategory = await getTermBySlug("category", slug);
+async function getBannerWithFallback(
+  type: TaxonomyBannerType,
+  slug: string
+): Promise<string> {
+  const currentTerm = await getTermBySlug(type, slug);
 
-  if (!currentCategory) return "";
+  if (!currentTerm) return "";
 
-  // 1. First check current category image
-  const currentImage = await getImageFromTerm(currentCategory);
+  // 1. Current category/tag/brand banner image
+  const currentImage = await getImageFromTerm(currentTerm);
 
   if (currentImage) return currentImage;
 
-  // 2. Then check parent category image
-  if (currentCategory.parent) {
-    const parentCategory = await getCategoryById(Number(currentCategory.parent));
-    const parentImage = await getImageFromTerm(parentCategory);
+  // Tags do not need parent/child fallback
+  if (type === "tag") return "";
+
+  // 2. Parent category/brand banner image
+  if (currentTerm.parent) {
+    const parentTerm = await getTermById(type, Number(currentTerm.parent));
+    const parentImage = await getImageFromTerm(parentTerm);
 
     if (parentImage) return parentImage;
   }
 
-  // 3. Then check child category image
-  const childCategories = await getChildCategories(Number(currentCategory.id));
+  // 3. Child category/brand banner image
+  const childTerms = await getChildTerms(type, Number(currentTerm.id));
 
-  for (const childCategory of childCategories) {
-    const childImage = await getImageFromTerm(childCategory);
+  for (const childTerm of childTerms) {
+    const childImage = await getImageFromTerm(childTerm);
 
     if (childImage) return childImage;
   }
@@ -176,23 +209,11 @@ async function getCategoryBannerWithFallback(slug: string): Promise<string> {
   return "";
 }
 
-async function getTagBannerImage(slug: string): Promise<string> {
-  const tag = await getTermBySlug("tag", slug);
-
-  if (!tag) return "";
-
-  return await getImageFromTerm(tag);
-}
-
 async function getTaxonomyBannerImage(
   type: TaxonomyBannerType,
   slug: string
 ): Promise<string> {
-  if (type === "category") {
-    return await getCategoryBannerWithFallback(slug);
-  }
-
-  return await getTagBannerImage(slug);
+  return await getBannerWithFallback(type, slug);
 }
 
 export async function TaxonomyBannerImage({
@@ -201,7 +222,10 @@ export async function TaxonomyBannerImage({
 }: TaxonomyBannerImageProps) {
   const imageUrl = await getTaxonomyBannerImage(type, slug);
 
-  if (!imageUrl) return null;
+  // If no banner image is found, show HomeHero
+  if (!imageUrl) {
+    return <HomeHero />;
+  }
 
   return (
     <div className="mb-8 w-full overflow-hidden rounded-3xl bg-zinc-100">

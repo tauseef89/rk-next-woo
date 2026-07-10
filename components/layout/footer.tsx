@@ -16,15 +16,17 @@ export function Footer() {
           </div>
           <div className="flex flex-col gap-2 text-sm">
             <h5 className="font-medium text-base text-white">Website</h5>
-            {Object.entries(mainMenu).map(([key, href]) => (
-              <Link
-                className="hover:underline underline-offset-4 text-gray-400 hover:text-white"
-                key={href}
-                href={href}
-              >
-                {key.charAt(0).toUpperCase() + key.slice(1)}
-              </Link>
-            ))}
+            {mainMenu.map(({ name, href, isExternal }) => (
+  <Link
+    className="text-gray-400 hover:text-white hover:underline underline-offset-4"
+    key={name}
+    href={href}
+    {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+  >
+    {name.charAt(0).toUpperCase() + name.slice(1)}
+  </Link>
+))}
+
           </div>
           <div className="flex flex-col gap-2 text-sm">
             <h5 className="font-medium text-base text-white">Quick Links</h5>
